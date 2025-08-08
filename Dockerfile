@@ -323,8 +323,18 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
 
 USER ${SDC_USER}
 EXPOSE 18630
-COPY docker-entrypoint.sh /
-ENTRYPOINT ["/docker-entrypoint.sh"]
+
+# Create inline entrypoint script
+RUN echo '#!/bin/bash' > /entrypoint.sh && \
+    echo 'set -e' >> /entrypoint.sh && \
+    echo 'if [ "$1" = "dc" ]; then' >> /entrypoint.sh && \
+    echo '    exec "${SDC_DIST}/bin/streamsets" dc' >> /entrypoint.sh && \
+    echo 'else' >> /entrypoint.sh && \
+    echo '    exec "$@"' >> /entrypoint.sh && \
+    echo 'fi' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["dc"]
 
 # Add labels
