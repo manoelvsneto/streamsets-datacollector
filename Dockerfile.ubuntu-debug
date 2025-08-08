@@ -1,23 +1,7 @@
 #
-# Copyright contributors to the StreamSets project
-# StreamSets Inc., an IBM Company 2024
+# Dockerfile Ubuntu 22.04 - Versão melhorada com debug
+# Corrige problemas de certificados e download
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# Multi-architecture Dockerfile for StreamSets Data Collector
-# Supports both x86_64 and ARM64 (aarch64) architectures
-# Optimized for Ubuntu 22.04
 
 ARG BASE_IMAGE=ubuntu:22.04
 FROM $BASE_IMAGE
@@ -26,20 +10,11 @@ FROM $BASE_IMAGE
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=GMT
 
-# Install system dependencies and Java 17
+# Install system dependencies in correct order
 USER 0
 RUN apt-get update && \
+    # Install basic utilities first
     apt-get install -y \
-        # Core dependencies
-        openjdk-17-jre-headless \
-        && \
-    # Create Java cert directory before installing ca-certificates-java
-    mkdir -p /etc/ssl/certs/java && \
-    apt-get install -y \
-        # Certificate management (after Java directory is created)
-        ca-certificates \
-        ca-certificates-java \
-        # System utilities
         curl \
         wget \
         unzip \
@@ -48,18 +23,43 @@ RUN apt-get update && \
         iputils-ping \
         traceroute \
         psmisc \
-        krb5-user \
-        apache2-utils \
-        # Build dependencies
         gnupg \
         lsb-release \
+        ca-certificates \
+        file \
+        xxd \
         && \
-    # Fix Java certificates configuration
-    /var/lib/dpkg/info/ca-certificates-java.postinst configure && \
+    # Install Java JRE
+    apt-get install -y openjdk-17-jre-headless && \
+    # Ensure Java cert directory exists and has correct permissions
+    mkdir -p /etc/ssl/certs/java && \
+    chmod 755 /etc/ssl/certs/java && \
+    # Install Java certificates package
+    apt-get install -y ca-certificates-java && \
+    # Force reconfigure Java certificates to fix any issues
+    dpkg-reconfigure -f noninteractive ca-certificates-java && \
+    # Install additional packages
+    apt-get install -y \
+        krb5-user \
+        apache2-utils \
+        && \
+    # Clean up
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Set Java environment
+# Test network connectivity and basic tools
+RUN echo "🧪 Testando conectividade de rede..." && \
+    curl -I https://www.google.com && \
+    echo "✅ Conectividade OK"
+
+# Verify Java installation and certificates
+RUN java -version && \
+    ls -la /etc/ssl/certs/java/ && \
+    echo "🔍 Testando keystore..." && \
+    keytool -list -keystore /etc/ssl/certs/java/cacerts -storepass changeit | head -10 && \
+    echo "✅ Java e certificados OK"
+
+# Set Java environment with architecture detection
 RUN ARCH=$(dpkg --print-architecture) && \
     echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${ARCH}" >> /etc/environment
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
@@ -93,6 +93,7 @@ RUN ln -sf /usr/share/zoneinfo/GMT /etc/localtime && \
 
 # Install protobuf-compiler - Multi-architecture support
 RUN ARCH=$(dpkg --print-architecture) && \
+    echo "🔧 Instalando protoc para arquitetura: $ARCH" && \
     if [ "$ARCH" = "amd64" ]; then \
         PROTOC_ARCH="x86_64"; \
     elif [ "$ARCH" = "arm64" ]; then \
@@ -100,10 +101,12 @@ RUN ARCH=$(dpkg --print-architecture) && \
     else \
         echo "Architecture $ARCH is not supported for protoc" && exit 1; \
     fi && \
+    echo "📥 Baixando protoc-25.1-linux-${PROTOC_ARCH}.zip..." && \
     curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-linux-${PROTOC_ARCH}.zip" && \
     unzip "protoc-25.1-linux-${PROTOC_ARCH}.zip" -d /usr/local && \
     rm "protoc-25.1-linux-${PROTOC_ARCH}.zip" && \
-    chmod +x /usr/local/bin/protoc
+    chmod +x /usr/local/bin/protoc && \
+    echo "✅ Protoc instalado: $(protoc --version)"
 
 # We set a UID/GID for the SDC user because certain test environments require these to be consistent throughout
 # the cluster. We use 20159 because it's above the default value of YARN's min.user.id property.
@@ -133,15 +136,27 @@ ENV SDC_CONF=/etc/sdc \
     USER_LIBRARIES_DIR=/opt/streamsets-datacollector-user-libs
 ENV STREAMSETS_LIBRARIES_EXTRA_DIR="${SDC_DIST}/streamsets-libs-extras"
 
-ENV SDC_JAVA_OPTS="-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8"
+# Java options optimized for containers
+ENV SDC_JAVA_OPTS="-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8 -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
 
-# Run the SDC configuration script.
-COPY sdc-configure.sh /tmp/
+# Test URL accessibility before running script
+RUN echo "🌐 Testando URL do StreamSets..." && \
+    curl -I "${SDC_URL}" && \
+    echo "✅ URL acessível"
+
+# Run the SDC configuration script with improved version
+COPY sdc-configure-improved.sh /tmp/sdc-configure.sh
 RUN chmod +x /tmp/sdc-configure.sh && /tmp/sdc-configure.sh
 
 # Install any additional stage libraries if requested
 ARG SDC_LIBS
-RUN if [ -n "${SDC_LIBS}" ]; then "${SDC_DIST}/bin/streamsets" stagelibs -install="${SDC_LIBS}"; fi
+RUN if [ -n "${SDC_LIBS}" ]; then \
+        echo "📚 Instalando stage libraries: ${SDC_LIBS}" && \
+        "${SDC_DIST}/bin/streamsets" stagelibs -install="${SDC_LIBS}" && \
+        echo "✅ Stage libraries instaladas"; \
+    else \
+        echo "ℹ️ Nenhuma stage library especificada"; \
+    fi
 
 # Copy files in $PROJECT_ROOT/resources dir to the SDC_RESOURCES dir.
 COPY resources/ ${SDC_RESOURCES}/
@@ -158,10 +173,28 @@ RUN chown -R sdc:sdc ${STREAMSETS_LIBRARIES_EXTRA_DIR}/
 RUN /bin/bash -c 'if [[ ${JDK_VERSION} =~ ^8 ]]; then ln -snf ${JAVA_HOME}/jre/lib/security ${JAVA_HOME}/lib/security; fi'
 
 # Create Flight libs symlink
-RUN sudo ln -s ${SDC_DIST}/flightservice/opt/ibm /opt/ibm
+RUN if [ -d "${SDC_DIST}/flightservice/opt/ibm" ]; then \
+        sudo ln -s ${SDC_DIST}/flightservice/opt/ibm /opt/ibm; \
+    fi
+
+# Verify installation
+RUN echo "🔍 Verificando instalação..." && \
+    ls -la "${SDC_DIST}" && \
+    ls -la "${SDC_CONF}" && \
+    echo "✅ Instalação verificada"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:18630/ || exit 1
 
 USER ${SDC_USER}
 EXPOSE 18630
 COPY docker-entrypoint.sh /
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["dc"]
+
+# Add labels
+LABEL org.label-schema.name="StreamSets Data Collector Ubuntu Debug" \
+      org.label-schema.description="StreamSets Data Collector on Ubuntu 22.04 with enhanced debugging" \
+      org.label-schema.version="${SDC_VERSION}" \
+      org.label-schema.vendor="StreamSets Inc."
