@@ -125,11 +125,158 @@ ENV SDC_CONF=/etc/sdc \
     USER_LIBRARIES_DIR=/opt/streamsets-datacollector-user-libs
 ENV STREAMSETS_LIBRARIES_EXTRA_DIR="${SDC_DIST}/streamsets-libs-extras"
 
-ENV SDC_JAVA_OPTS="-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8"
+ENV SDC_JAVA_OPTS="-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8 -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
 
-# Run the SDC configuration script.
-COPY sdc-configure.sh *.tgz /tmp/
-RUN /tmp/sdc-configure.sh
+# Download and install StreamSets Data Collector with robust error handling
+RUN set -e && \
+    echo "=== StreamSets Data Collector Installation ===" && \
+    \
+    # Check if SDC dist already exists, if not create its artifact of things.
+    if [ ! -d "${SDC_DIST}" ]; then \
+        echo "Checking network connectivity..." && \
+        curl -s --max-time 10 --head https://www.google.com > /dev/null && \
+        curl -s --max-time 30 --head "${SDC_URL}" > /dev/null && \
+        echo "Network connectivity verified" && \
+        \
+        # Download with retry logic
+        for attempt in 1 2 3; do \
+            echo "Download attempt $attempt/3..." && \
+            rm -f /tmp/sdc.tgz && \
+            if curl -L \
+                --retry 3 \
+                --retry-delay 5 \
+                --max-time 600 \
+                --connect-timeout 30 \
+                --fail \
+                --show-error \
+                --progress-bar \
+                -o /tmp/sdc.tgz \
+                "${SDC_URL}"; then \
+                \
+                echo "Download completed, validating file..." && \
+                \
+                # Validate downloaded file
+                if [ -f /tmp/sdc.tgz ]; then \
+                    file_size=$(stat -c%s /tmp/sdc.tgz 2>/dev/null || stat -f%z /tmp/sdc.tgz 2>/dev/null || echo "0") && \
+                    echo "File size: $file_size bytes" && \
+                    \
+                    if [ "$file_size" -gt 104857600 ]; then \
+                        if file /tmp/sdc.tgz | grep -q "gzip compressed"; then \
+                            if tar -tzf /tmp/sdc.tgz > /dev/null 2>&1; then \
+                                echo "File validation successful" && \
+                                break; \
+                            else \
+                                echo "File validation failed: corrupted tar archive"; \
+                            fi; \
+                        else \
+                            echo "File validation failed: not a gzip file" && \
+                            file /tmp/sdc.tgz; \
+                        fi; \
+                    else \
+                        echo "File validation failed: file too small (< 100MB)"; \
+                    fi; \
+                else \
+                    echo "File validation failed: file does not exist"; \
+                fi && \
+                rm -f /tmp/sdc.tgz; \
+            else \
+                echo "Download failed (attempt $attempt)"; \
+            fi && \
+            \
+            if [ $attempt -lt 3 ]; then \
+                echo "Waiting 10 seconds before retry..." && \
+                sleep 10; \
+            fi; \
+        done && \
+        \
+        # Check if we have a valid file
+        if [ ! -f /tmp/sdc.tgz ]; then \
+            echo "FATAL: Failed to download valid StreamSets Data Collector after 3 attempts" && \
+            exit 1; \
+        fi && \
+        \
+        # Extract the archive
+        echo "Creating SDC directory: ${SDC_DIST}" && \
+        mkdir -p "${SDC_DIST}" && \
+        echo "Extracting StreamSets Data Collector..." && \
+        tar xzf /tmp/sdc.tgz --strip-components 1 -C "${SDC_DIST}" && \
+        rm -f /tmp/sdc.tgz && \
+        echo "Extraction completed successfully" && \
+        \
+        # Move configuration to /etc/sdc
+        mv "${SDC_DIST}/etc" "${SDC_CONF}" && \
+        echo "Configuration moved to ${SDC_CONF}"; \
+    else \
+        echo "SDC_DIST already exists: ${SDC_DIST}"; \
+    fi && \
+    \
+    # Configure users and permissions
+    echo "Configuring users and permissions..." && \
+    \
+    # SDC-11575 -- support for arbitrary userIds as per OpenShift
+    if ! getent group ${SDC_GID} > /dev/null 2>&1; then \
+        groupadd --system --gid ${SDC_GID} ${SDC_USER}; \
+    fi && \
+    \
+    if ! getent passwd ${SDC_UID} > /dev/null 2>&1; then \
+        adduser --system --uid ${SDC_UID} --gid ${SDC_GID} ${SDC_USER}; \
+    fi && \
+    \
+    usermod -aG root ${SDC_USER} && \
+    chgrp -R 0 "${SDC_DIST}" "${SDC_CONF}" && \
+    chmod -R g=u "${SDC_DIST}" "${SDC_CONF}" && \
+    # setgid bit on conf dir to preserve group on sed -i
+    chmod g+s "${SDC_CONF}" && \
+    chmod g=u /etc/passwd && \
+    \
+    # Update /etc/sudoers to include SDC user.
+    echo "${SDC_USER} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
+    \
+    # Add logging to stdout to make logs visible through `docker logs`.
+    if [ -f "${SDC_CONF}/sdc-log4j.properties" ]; then \
+        sed -i 's|INFO, streamsets|INFO, streamsets,stdout|' "${SDC_CONF}/sdc-log4j.properties"; \
+    elif [ -f "${SDC_CONF}/sdc-log4j2.properties" ]; then \
+        sed -i 's|rootLogger.appenderRef.streamsets.ref = streamsets|rootLogger.appenderRef.streamsets.ref = streamsets\nrootLogger.appenderRef.stdout.ref = stdout|' "${SDC_CONF}/sdc-log4j2.properties"; \
+    fi && \
+    \
+    # Workaround to address SDC-8005.
+    if [ -d "${SDC_DIST}/user-libs" ]; then \
+        cp -R "${SDC_DIST}/user-libs" "${USER_LIBRARIES_DIR}"; \
+    fi && \
+    \
+    # Create necessary directories.
+    mkdir -p /mnt \
+        "${SDC_DATA}" \
+        "${SDC_LOG}" \
+        "${SDC_RESOURCES}" \
+        "${USER_LIBRARIES_DIR}" && \
+    \
+    chgrp -R 0 "${SDC_RESOURCES}" "${USER_LIBRARIES_DIR}" "${SDC_LOG}" "${SDC_DATA}" && \
+    chmod -R g=u "${SDC_RESOURCES}" "${USER_LIBRARIES_DIR}" "${SDC_LOG}" "${SDC_DATA}" && \
+    \
+    # Update sdc-security.policy to include the custom stage library directory.
+    echo "" >> "${SDC_CONF}/sdc-security.policy" && \
+    echo "// custom stage library directory" >> "${SDC_CONF}/sdc-security.policy" && \
+    echo "grant codebase \"file:///opt/streamsets-datacollector-user-libs/-\" {" >> "${SDC_CONF}/sdc-security.policy" && \
+    echo "  permission java.security.AllPermission;" >> "${SDC_CONF}/sdc-security.policy" && \
+    echo "};" >> "${SDC_CONF}/sdc-security.policy" && \
+    \
+    # Use short option -s as long option --status is not supported on alpine linux.
+    sed -i 's|--status|-s|' "${SDC_DIST}/libexec/_stagelibs" && \
+    \
+    # Set distribution channel variable
+    sed -i '/^export SDC_DISTRIBUTION_CHANNEL=*/d' "${SDC_DIST}/libexec/sdcd-env.sh" && \
+    sed -i '/^export SDC_DISTRIBUTION_CHANNEL=*/d' "${SDC_DIST}/libexec/sdc-env.sh" && \
+    echo -e "\nexport SDC_DISTRIBUTION_CHANNEL=docker" >> ${SDC_DIST}/libexec/sdc-env.sh && \
+    echo -e "\nexport SDC_DISTRIBUTION_CHANNEL=docker" >> ${SDC_DIST}/libexec/sdcd-env.sh && \
+    \
+    # Needed for OpenShift deployment
+    sed -i 's/http.realm.file.permission.check=true/http.realm.file.permission.check=false/' ${SDC_CONF}/sdc.properties && \
+    \
+    # Create VERSION file
+    echo "${SDC_VERSION}" > "${SDC_DIST}/VERSION" && \
+    \
+    echo "StreamSets Data Collector installation completed successfully"
 
 # Install any additional stage libraries if requested
 ARG SDC_LIBS
