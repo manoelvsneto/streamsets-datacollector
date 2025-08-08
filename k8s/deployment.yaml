@@ -21,7 +21,7 @@ spec:
         fsGroup: 20159
       containers:
       - name: streamsets-datacollector
-        image: yourregistry.azurecr.io/streamsets-datacollector:latest
+        image: manoelvsneto/streamsets-datacollector:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 18630

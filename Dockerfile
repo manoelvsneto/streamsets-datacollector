@@ -111,7 +111,7 @@ ENV SDC_JAVA_OPTS="-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8"
 
 # Run the SDC configuration script.
 COPY sdc-configure.sh *.tgz /tmp/
-RUN /tmp/sdc-configure.sh
+RUN chmod +x /tmp/sdc-configure.sh && /tmp/sdc-configure.sh
 
 # Install any additional stage libraries if requested
 ARG SDC_LIBS
