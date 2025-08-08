@@ -1,0 +1,74 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: streamsets-datacollector-netpol
+  namespace: streamsets
+  labels:
+    app: streamsets-datacollector
+spec:
+  podSelector:
+    matchLabels:
+      app: streamsets-datacollector
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Permitir tráfego do Ingress Controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 18630
+    - protocol: TCP
+      port: 18631
+  
+  # Permitir tráfego de outros pods no mesmo namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: streamsets
+    ports:
+    - protocol: TCP
+      port: 18630
+    - protocol: TCP
+      port: 18631
+  
+  # Permitir tráfego de monitoramento (se usando Prometheus)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 18630
+  
+  egress:
+  # Permitir DNS
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  
+  # Permitir HTTPS para atualizações e downloads
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+  
+  # Permitir conexões com bancos de dados (ajustar conforme necessário)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 5432  # PostgreSQL
+    - protocol: TCP
+      port: 3306  # MySQL
+    - protocol: TCP
+      port: 1433  # SQL Server
+    - protocol: TCP
+      port: 27017 # MongoDB

@@ -1,0 +1,109 @@
+pool:
+  name: Arm64
+  vmImage: 'ubuntu-22.04'
+
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    exclude:
+    - README.md
+    - docs/*
+
+pr:
+  branches:
+    include:
+    - main
+
+variables:
+  # Container Registry Service Connection
+  dockerRegistryServiceConnection: 'DockerConnection'
+  imageRepository: 'manoelvsneto/streamsets-datacollector'
+  containerRegistry: 'DockerConnection'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  tag: '$(Build.BuildId)'
+  
+  # Azure Kubernetes Service
+  kubernetesServiceConnection: 'K8SOracleCloud'
+  kubernetesNamespace: 'streamsets'
+  
+  # Agent VM image name
+  vmImageName: 'ubuntu-22.04'
+
+stages:
+- stage: Build
+  displayName: Build and Test
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: Docker@2
+      displayName: Build Docker image
+      inputs:
+        command: build
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+          latest
+        arguments: |
+          --build-arg SDC_VERSION=6.0.0-SNAPSHOT
+          --build-arg SDC_LIBS=streamsets-datacollector-jdbc-lib,streamsets-datacollector-jython_2_7-lib
+
+    - task: Docker@2
+      displayName: Push Docker image to ACR
+      inputs:
+        command: push
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+          latest
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Kubernetes manifests'
+      inputs:
+        pathToPublish: '$(Build.SourcesDirectory)/k8s'
+        artifactName: 'k8s-manifests'
+
+
+- stage: Deploy_Prod
+  displayName: Deploy to Production
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: Deploy
+    displayName: Deploy to AKS Production
+    pool:
+      vmImage: $(vmImageName)
+    environment: 'production'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: DownloadBuildArtifacts@0
+            inputs:
+              artifactName: 'k8s-manifests'
+              downloadPath: '$(System.ArtifactsDirectory)'
+
+
+          - task: KubernetesManifest@0
+            displayName: Deploy StreamSets Data Collector
+            inputs:
+              action: deploy
+              kubernetesServiceConnection: $(kubernetesServiceConnection)
+              namespace: streamsets
+              manifests: |
+                $(System.ArtifactsDirectory)/k8s-manifests/configmap.yaml
+                $(System.ArtifactsDirectory)/k8s-manifests/secret.yaml
+                $(System.ArtifactsDirectory)/k8s-manifests/persistent-volume.yaml
+                $(System.ArtifactsDirectory)/k8s-manifests/deployment.yaml
+                $(System.ArtifactsDirectory)/k8s-manifests/service.yaml
+                $(System.ArtifactsDirectory)/k8s-manifests/ingress.yaml
+              containers: |
+                $(containerRegistry)/$(imageRepository):$(tag)

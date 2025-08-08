@@ -1,0 +1,138 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streamsets-datacollector
+  namespace: streamsets
+  labels:
+    app: streamsets-datacollector
+spec:
+  replicas: 1  # StreamSets geralmente roda como singleton para dados consistentes
+  selector:
+    matchLabels:
+      app: streamsets-datacollector
+  template:
+    metadata:
+      labels:
+        app: streamsets-datacollector
+    spec:
+      securityContext:
+        runAsUser: 20159
+        runAsGroup: 20159
+        fsGroup: 20159
+      containers:
+      - name: streamsets-datacollector
+        image: yourregistry.azurecr.io/streamsets-datacollector:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 18630
+          name: http
+          protocol: TCP
+        - containerPort: 18631
+          name: https
+          protocol: TCP
+        env:
+        - name: SDC_JAVA_OPTS
+          valueFrom:
+            configMapKeyRef:
+              name: streamsets-config
+              key: SDC_JAVA_OPTS
+        - name: SDC_CONF_HTTP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: streamsets-config
+              key: SDC_CONF_HTTP_PORT
+        - name: SDC_CONF_HTTPS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: streamsets-config
+              key: SDC_CONF_HTTPS_PORT
+        - name: SDC_CONF_HTTP_AUTHENTICATION
+          valueFrom:
+            configMapKeyRef:
+              name: streamsets-config
+              key: SDC_CONF_HTTP_AUTHENTICATION
+        - name: SDC_CONF_HTTP_REALM_FILE_REALM_1
+          valueFrom:
+            configMapKeyRef:
+              name: streamsets-config
+              key: SDC_CONF_HTTP_REALM_FILE_REALM_1
+        - name: SDC_CONF_PIPELINE_MAX_RUNNERS_COUNT
+          valueFrom:
+            configMapKeyRef:
+              name: streamsets-config
+              key: SDC_CONF_PIPELINE_MAX_RUNNERS_COUNT
+        - name: SDC_CONF_LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: streamsets-config
+              key: SDC_CONF_LOG_LEVEL
+        - name: SDC_CONF_PRODUCTION_MAX_BATCH_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: streamsets-config
+              key: SDC_CONF_PRODUCTION_MAX_BATCH_SIZE
+        - name: SDC_CONF_PREVIEW_MAX_BATCH_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: streamsets-config
+              key: SDC_CONF_PREVIEW_MAX_BATCH_SIZE
+        - name: ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: streamsets-secret
+              key: admin-user
+        - name: ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: streamsets-secret
+              key: admin-password
+        volumeMounts:
+        - name: data-volume
+          mountPath: /data
+        - name: logs-volume
+          mountPath: /logs
+        - name: resources-volume
+          mountPath: /resources
+        - name: config-volume
+          mountPath: /etc/sdc/sdc.properties
+          subPath: sdc.properties
+          readOnly: true
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 18630
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 18630
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: streamsets-data-pvc
+      - name: logs-volume
+        persistentVolumeClaim:
+          claimName: streamsets-logs-pvc
+      - name: resources-volume
+        persistentVolumeClaim:
+          claimName: streamsets-resources-pvc
+      - name: config-volume
+        configMap:
+          name: streamsets-config
+      restartPolicy: Always
+      imagePullSecrets:
+      - name: acr-secret  # Secret para ACR se necessário

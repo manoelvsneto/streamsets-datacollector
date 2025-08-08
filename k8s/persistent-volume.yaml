@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: streamsets-data-pvc
+  namespace: streamsets
+  labels:
+    app: streamsets-datacollector
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: default  # Ajustar conforme sua storage class
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: streamsets-logs-pvc
+  namespace: streamsets
+  labels:
+    app: streamsets-datacollector
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: default  # Ajustar conforme sua storage class
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: streamsets-resources-pvc
+  namespace: streamsets
+  labels:
+    app: streamsets-datacollector
+spec:
+  accessModes:
+    - ReadWriteMany  # Para compartilhar recursos entre pods
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: default  # Ajustar conforme sua storage class
