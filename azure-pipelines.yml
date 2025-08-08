@@ -21,7 +21,7 @@ variables:
   dockerRegistryServiceConnection: 'DockerConnection'
   imageRepository: 'manoelvsneto/streamsets-datacollector'
   containerRegistry: 'DockerConnection'
-  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile.ubuntu'
   tag: '$(Build.BuildId)'
   
   # Azure Kubernetes Service

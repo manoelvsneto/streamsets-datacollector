@@ -1,18 +1,29 @@
 #!/bin/bash
 
 # Script para testar o build Docker localmente
-# Uso: ./test-build.sh [tag] [sdc_version] [sdc_libs]
+# Uso: ./test-build.sh [tag] [sdc_version] [sdc_libs] [ubuntu]
 
 set -e
 
 TAG=${1:-test-local}
 SDC_VERSION=${2:-6.0.0-SNAPSHOT}
 SDC_LIBS=${3:-streamsets-datacollector-jdbc-lib,streamsets-datacollector-jython_2_7-lib}
+USE_UBUNTU=${4:-false}
+
+if [ "$USE_UBUNTU" = "true" ] || [ "$USE_UBUNTU" = "ubuntu" ]; then
+    DOCKERFILE_PATH="Dockerfile.ubuntu"
+    BASE_IMAGE="Ubuntu 22.04"
+else
+    DOCKERFILE_PATH="Dockerfile"
+    BASE_IMAGE="UBI9 OpenJDK 17"
+fi
 
 echo "🐳 Testando build Docker do StreamSets Data Collector"
 echo "📦 Tag: $TAG"
 echo "🔧 SDC Version: $SDC_VERSION"
 echo "📚 SDC Libs: $SDC_LIBS"
+echo "🐧 Base Image: $BASE_IMAGE"
+echo "📄 Dockerfile: $DOCKERFILE_PATH"
 echo ""
 
 # Verificar se Docker está disponível
@@ -24,7 +35,7 @@ fi
 echo "✅ Docker disponível: $(docker --version)"
 
 # Verificar se os arquivos necessários existem
-REQUIRED_FILES=("Dockerfile" "sdc-configure.sh")
+REQUIRED_FILES=("$DOCKERFILE_PATH" "sdc-configure.sh")
 for file in "${REQUIRED_FILES[@]}"; do
     if [ ! -f "$file" ]; then
         echo "❌ Arquivo $file não encontrado"
@@ -40,6 +51,7 @@ echo "🔨 Iniciando build..."
 if docker build \
     --build-arg SDC_VERSION="$SDC_VERSION" \
     --build-arg SDC_LIBS="$SDC_LIBS" \
+    -f "$DOCKERFILE_PATH" \
     -t "streamsets-datacollector:$TAG" \
     .; then
     

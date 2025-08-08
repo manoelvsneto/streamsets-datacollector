@@ -1,16 +1,22 @@
 # Script PowerShell para testar o build Docker localmente
-# Uso: .\test-build.ps1
+# Uso: .\test-build.ps1 [-Tag "test"] [-SdcVersion "6.0.0"] [-SdcLibs "libs"] [-Ubuntu]
 
 param(
     [string]$Tag = "test-local",
     [string]$SdcVersion = "6.0.0-SNAPSHOT",
-    [string]$SdcLibs = "streamsets-datacollector-jdbc-lib,streamsets-datacollector-jython_2_7-lib"
+    [string]$SdcLibs = "streamsets-datacollector-jdbc-lib,streamsets-datacollector-jython_2_7-lib",
+    [switch]$Ubuntu
 )
+
+$DockerfilePath = if ($Ubuntu) { "Dockerfile.ubuntu" } else { "Dockerfile" }
+$BaseImage = if ($Ubuntu) { "Ubuntu 22.04" } else { "UBI9 OpenJDK 17" }
 
 Write-Host "🐳 Testando build Docker do StreamSets Data Collector" -ForegroundColor Green
 Write-Host "📦 Tag: $Tag" -ForegroundColor Yellow
 Write-Host "🔧 SDC Version: $SdcVersion" -ForegroundColor Yellow
 Write-Host "📚 SDC Libs: $SdcLibs" -ForegroundColor Yellow
+Write-Host "🐧 Base Image: $BaseImage" -ForegroundColor Yellow
+Write-Host "📄 Dockerfile: $DockerfilePath" -ForegroundColor Yellow
 Write-Host ""
 
 # Verificar se Docker está disponível
@@ -24,7 +30,7 @@ catch {
 }
 
 # Verificar se os arquivos necessários existem
-$requiredFiles = @("Dockerfile", "sdc-configure.sh")
+$requiredFiles = @($DockerfilePath, "sdc-configure.sh")
 foreach ($file in $requiredFiles) {
     if (!(Test-Path $file)) {
         Write-Host "❌ Arquivo $file não encontrado" -ForegroundColor Red
@@ -40,6 +46,7 @@ Write-Host "🔨 Iniciando build..." -ForegroundColor Cyan
 $buildArgs = @(
     "--build-arg", "SDC_VERSION=$SdcVersion",
     "--build-arg", "SDC_LIBS=$SdcLibs",
+    "-f", $DockerfilePath,
     "-t", "streamsets-datacollector:$Tag",
     "."
 )
