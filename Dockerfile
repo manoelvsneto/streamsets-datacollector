@@ -15,69 +15,87 @@
 # limitations under the License.
 #
 
-ARG BASE_IMAGE=registry.access.redhat.com/ubi9/openjdk-17-runtime
+ARG BASE_IMAGE=ubuntu:22.04
 FROM $BASE_IMAGE
 
 USER 0
-RUN microdnf -y upgrade && \
-    microdnf install -y \
-        httpd-tools \
+
+# Set environment variables to avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=GMT
+
+RUN apt-get update && \
+    apt-get install -y \
+        apache2-utils \
         hostname \
-        krb5-workstation \
-        iputils \
+        krb5-user \
+        iputils-ping \
         psmisc \
         sudo \
         wget \
         unzip \
-        yum \
+        curl \
+        ca-certificates \
+        gnupg \
+        lsb-release \
+        file \
+        openjdk-17-jre-headless \
         && \
-    microdnf clean all
+    # Ensure Java cert directory exists and has correct permissions
+    mkdir -p /etc/ssl/certs/java && \
+    chmod 755 /etc/ssl/certs/java && \
+    # Install Java certificates package
+    apt-get install -y ca-certificates-java && \
+    # Force reconfigure Java certificates to fix any issues
+    dpkg-reconfigure -f noninteractive ca-certificates-java && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 ARG JDK_VERSION=17
 RUN set -e; \
     if [ $JDK_VERSION = 8 ]; then \
-        microdnf install -y java-1.8.0-openjdk-devel; \
-        microdnf clean all; \
-        alternatives --set java java-1.8.0-openjdk.$(uname -m); \
+        apt-get update && \
+        apt-get install -y openjdk-8-jdk-headless && \
+        update-alternatives --set java /usr/lib/jvm/java-8-openjdk-$(dpkg --print-architecture)/jre/bin/java && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Set Java environment with architecture detection
+RUN ARCH=$(dpkg --print-architecture) && \
+    echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${ARCH}" >> /etc/environment
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+# Update JAVA_HOME for the correct architecture at runtime
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then \
+        sed -i 's/java-17-openjdk-amd64/java-17-openjdk-arm64/g' /etc/environment; \
     fi
 
 # Marker for transition between base image and application image for CVE scanning
 ARG LAYER_NAME=application-image
 
-# Accept SHA-1 in TLS trust chains for compatibility
-RUN update-crypto-policies --set DEFAULT:SHA1
-
-# OpenShift: Ensure container will have permissions to add custom CA certs at startup, if desired.
-RUN if [ -d /etc/pki/ca-trust ]; then \
-        chmod -R g+w /etc/pki/ca-trust; \
-    fi
-
-# Install traceroute version depending on the architecture of the host
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "x86_64" ]; then \
-        wget https://vault.centos.org/8-stream/BaseOS/x86_64/os/Packages/traceroute-2.1.0-6.el8.x86_64.rpm; \
-    elif [ "$ARCH" = "aarch64" ]; then \
-        wget https://vault.centos.org/8-stream/BaseOS/aarch64/os/Packages/traceroute-2.1.0-6.el8.aarch64.rpm; \
-    else \
-        echo "Architecture $ARCH is not supported" && exit 1; \
-    fi && \
-    yum install -y traceroute-2.1.0-6.el8.*.rpm && \
-    rm traceroute-2.1.0-6.el8.*.rpm
-
-# Install protobuf-compiler
-RUN curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-linux-x86_64.zip && \
-    unzip protoc-25.1-linux-x86_64.zip -d $HOME/.local && \
-    rm protoc-25.1-linux-x86_64.zip && \
-    export PATH="$PATH:$HOME/.local/bin"
-
-
-# Used for configuring DNS resolution priority
+# Configure DNS resolution priority
 RUN echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' >> /etc/nsswitch.conf
 
-# We need to set up GMT as the default timezone to maintain compatibility
+# Set up GMT as the default timezone to maintain compatibility
 RUN ln -sf /usr/share/zoneinfo/GMT /etc/localtime && \
     echo "GMT" > /etc/timezone
 
+# Install protobuf-compiler - Multi-architecture support
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then \
+        PROTOC_ARCH="x86_64"; \
+    elif [ "$ARCH" = "arm64" ]; then \
+        PROTOC_ARCH="aarch_64"; \
+    else \
+        echo "Architecture $ARCH is not supported for protoc" && exit 1; \
+    fi && \
+    curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-linux-${PROTOC_ARCH}.zip" && \
+    unzip "protoc-25.1-linux-${PROTOC_ARCH}.zip" -d /usr/local && \
+    rm "protoc-25.1-linux-${PROTOC_ARCH}.zip" && \
+    chmod +x /usr/local/bin/protoc
 
 # We set a UID/GID for the SDC user because certain test environments require these to be consistent throughout
 # the cluster. We use 20159 because it's above the default value of YARN's min.user.id property.
