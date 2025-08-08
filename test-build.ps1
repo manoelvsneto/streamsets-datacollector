@@ -1,15 +1,24 @@
 # Script PowerShell para testar o build Docker localmente
-# Uso: .\test-build.ps1 [-Tag "test"] [-SdcVersion "6.0.0"] [-SdcLibs "libs"] [-Ubuntu]
+# Uso: .\test-build.ps1 [-Tag "test"] [-SdcVersion "6.0.0"] [-SdcLibs "libs"] [-Ubuntu] [-Fixed]
 
 param(
     [string]$Tag = "test-local",
     [string]$SdcVersion = "6.0.0-SNAPSHOT",
     [string]$SdcLibs = "streamsets-datacollector-jdbc-lib,streamsets-datacollector-jython_2_7-lib",
-    [switch]$Ubuntu
+    [switch]$Ubuntu,
+    [switch]$Fixed
 )
 
-$DockerfilePath = if ($Ubuntu) { "Dockerfile.ubuntu" } else { "Dockerfile" }
-$BaseImage = if ($Ubuntu) { "Ubuntu 22.04" } else { "UBI9 OpenJDK 17" }
+if ($Fixed) {
+    $DockerfilePath = "Dockerfile.ubuntu-fixed"
+    $BaseImage = "Ubuntu 22.04 (Certificados Corrigidos)"
+} elseif ($Ubuntu) {
+    $DockerfilePath = "Dockerfile.ubuntu" 
+    $BaseImage = "Ubuntu 22.04"
+} else {
+    $DockerfilePath = "Dockerfile"
+    $BaseImage = "UBI9 OpenJDK 17"
+}
 
 Write-Host "🐳 Testando build Docker do StreamSets Data Collector" -ForegroundColor Green
 Write-Host "📦 Tag: $Tag" -ForegroundColor Yellow

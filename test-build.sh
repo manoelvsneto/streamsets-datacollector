@@ -1,16 +1,19 @@
 #!/bin/bash
 
 # Script para testar o build Docker localmente
-# Uso: ./test-build.sh [tag] [sdc_version] [sdc_libs] [ubuntu]
+# Uso: ./test-build.sh [tag] [sdc_version] [sdc_libs] [ubuntu|fixed]
 
 set -e
 
 TAG=${1:-test-local}
 SDC_VERSION=${2:-6.0.0-SNAPSHOT}
 SDC_LIBS=${3:-streamsets-datacollector-jdbc-lib,streamsets-datacollector-jython_2_7-lib}
-USE_UBUNTU=${4:-false}
+VARIANT=${4:-original}
 
-if [ "$USE_UBUNTU" = "true" ] || [ "$USE_UBUNTU" = "ubuntu" ]; then
+if [ "$VARIANT" = "fixed" ]; then
+    DOCKERFILE_PATH="Dockerfile.ubuntu-fixed"
+    BASE_IMAGE="Ubuntu 22.04 (Certificados Corrigidos)"
+elif [ "$VARIANT" = "ubuntu" ]; then
     DOCKERFILE_PATH="Dockerfile.ubuntu"
     BASE_IMAGE="Ubuntu 22.04"
 else

@@ -49,8 +49,14 @@ ENV TZ=GMT
 # Install runtime dependencies
 RUN apt-get update && \
     apt-get install -y \
-        # Java Runtime
+        # Java Runtime - install JRE first
         openjdk-17-jre-headless \
+        # Create Java cert directory before installing ca-certificates-java
+        && mkdir -p /etc/ssl/certs/java \
+        && apt-get install -y \
+        # Certificate management (after Java is installed)
+        ca-certificates \
+        ca-certificates-java \
         # System utilities
         curl \
         wget \
@@ -66,9 +72,9 @@ RUN apt-get update && \
         # Network utilities
         netcat-openbsd \
         dnsutils \
-        # Certificate management
-        ca-certificates \
         && \
+    # Fix Java certificates
+    /var/lib/dpkg/info/ca-certificates-java.postinst configure && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
