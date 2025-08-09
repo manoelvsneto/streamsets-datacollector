@@ -104,7 +104,7 @@ ARG SDC_GID=20159
 
 # Begin Data Collector installation
 ARG SDC_VERSION=4.4.0
-ARG SDC_URL=https://archives.streamsets.com/datacollector/${SDC_VERSION}/tarball/streamsets-datacollector-core-${SDC_VERSION}.tgz
+ARG SDC_URL=https://archives.streamsets.com/datacollector/${SDC_VERSION}/tarball/activation/streamsets-datacollector-core-${SDC_VERSION}.tgz
 ARG SDC_USER=sdc
 # SDC_HOME is where executables and related files are installed. Used in setup_mapr script.
 ARG SDC_HOME="/opt/streamsets-datacollector-${SDC_VERSION}"
@@ -171,12 +171,12 @@ RUN set -e && \
         \
         # Try URL 2: Maven Central mirror if first failed
         if [ "$DOWNLOAD_SUCCESS" = false ]; then \
-            ALT_URL="https://repo1.maven.org/maven2/com/streamsets/streamsets-datacollector-core/${SDC_VERSION}/streamsets-datacollector-core-${SDC_VERSION}.tgz" && \
-            echo "Trying Maven Central URL: $ALT_URL" && \
+            ALT_URL="https://archives.streamsets.com/datacollector/${SDC_VERSION}/tarball/activation/streamsets-datacollector-core-${SDC_VERSION}.tgz" && \
+            echo "Trying alternative archive URL: $ALT_URL" && \
             if curl -s --max-time 30 --head "$ALT_URL" > /dev/null; then \
-                echo "Maven Central URL is accessible" && \
+                echo "Alternative archive URL is accessible" && \
                 for attempt in 1 2 3; do \
-                    echo "Download attempt $attempt/3 from Maven Central..." && \
+                    echo "Download attempt $attempt/3 from alternative archive..." && \
                     rm -f /tmp/sdc.tgz && \
                     if curl -L --retry 3 --retry-delay 5 --max-time 600 --connect-timeout 30 --fail --show-error --progress-bar -o /tmp/sdc.tgz "$ALT_URL"; then \
                         if [ -f /tmp/sdc.tgz ]; then \
@@ -185,7 +185,7 @@ RUN set -e && \
                             if [ "$file_size" -gt 52428800 ]; then \
                                 if file /tmp/sdc.tgz | grep -q "gzip compressed"; then \
                                     if tar -tzf /tmp/sdc.tgz > /dev/null 2>&1; then \
-                                        echo "Maven Central download validation successful" && \
+                                        echo "Alternative archive download validation successful" && \
                                         DOWNLOAD_SUCCESS=true && \
                                         break; \
                                     fi; \
@@ -197,27 +197,27 @@ RUN set -e && \
                     if [ $attempt -lt 3 ]; then sleep 5; fi; \
                 done; \
             else \
-                echo "Maven Central URL not accessible"; \
+                echo "Alternative archive URL not accessible"; \
             fi; \
         fi && \
         \
-        # Try URL 3: GitHub releases as last resort
+        # Try URL 3: Direct download as last resort
         if [ "$DOWNLOAD_SUCCESS" = false ]; then \
-            GITHUB_URL="https://github.com/streamsets/datacollector/releases/download/streamsets-datacollector-core-${SDC_VERSION}/streamsets-datacollector-core-${SDC_VERSION}.tgz" && \
-            echo "Trying GitHub releases URL: $GITHUB_URL" && \
-            if curl -s --max-time 30 --head "$GITHUB_URL" > /dev/null; then \
-                echo "GitHub URL is accessible" && \
+            DIRECT_URL="https://download.streamsets.com/datacollector/streamsets-datacollector-core-${SDC_VERSION}.tgz" && \
+            echo "Trying direct download URL: $DIRECT_URL" && \
+            if curl -s --max-time 30 --head "$DIRECT_URL" > /dev/null; then \
+                echo "Direct download URL is accessible" && \
                 for attempt in 1 2 3; do \
-                    echo "Download attempt $attempt/3 from GitHub..." && \
+                    echo "Download attempt $attempt/3 from direct download..." && \
                     rm -f /tmp/sdc.tgz && \
-                    if curl -L --retry 3 --retry-delay 5 --max-time 600 --connect-timeout 30 --fail --show-error --progress-bar -o /tmp/sdc.tgz "$GITHUB_URL"; then \
+                    if curl -L --retry 3 --retry-delay 5 --max-time 600 --connect-timeout 30 --fail --show-error --progress-bar -o /tmp/sdc.tgz "$DIRECT_URL"; then \
                         if [ -f /tmp/sdc.tgz ]; then \
                             file_size=$(stat -c%s /tmp/sdc.tgz 2>/dev/null || echo "0") && \
                             echo "File size: $file_size bytes" && \
                             if [ "$file_size" -gt 52428800 ]; then \
                                 if file /tmp/sdc.tgz | grep -q "gzip compressed"; then \
                                     if tar -tzf /tmp/sdc.tgz > /dev/null 2>&1; then \
-                                        echo "GitHub download validation successful" && \
+                                        echo "Direct download validation successful" && \
                                         DOWNLOAD_SUCCESS=true && \
                                         break; \
                                     fi; \
@@ -229,7 +229,7 @@ RUN set -e && \
                     if [ $attempt -lt 3 ]; then sleep 5; fi; \
                 done; \
             else \
-                echo "GitHub URL not accessible"; \
+                echo "Direct download URL not accessible"; \
             fi; \
         fi && \
         \
