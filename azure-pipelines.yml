@@ -103,7 +103,7 @@ stages:
               connectionType: 'Kubernetes Service Connection'
               kubernetesServiceEndpoint: $(kubernetesServiceConnection)
               command: 'apply'
-              arguments: '-f $(System.ArtifactsDirectory)/k8s-manifests/ --namespace=streamsets --validate=false --insecure-skip-tls-verify=true'
+              arguments: '-f $(System.ArtifactsDirectory)/k8s-manifests/ --namespace=streamsets --validate=false --insecure-skip-tls-verify=true --exclude="**/kustomization.yaml"'
 
           - task: Kubernetes@1
             displayName: kubectl set image
