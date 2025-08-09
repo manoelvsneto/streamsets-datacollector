@@ -67,6 +67,11 @@ stages:
       inputs:
         pathToPublish: '$(Build.SourcesDirectory)/k8s'
         artifactName: 'k8s-manifests'
+        
+    - script: |
+        # Remove kustomization.yaml from published artifacts since cluster doesn't support it
+        find $(Build.ArtifactStagingDirectory) -name "kustomization.yaml" -delete
+      displayName: 'Clean kustomization files from artifacts'
 
 
 - stage: Deploy_Prod
@@ -97,13 +102,20 @@ stages:
               arguments: 'namespace streamsets --insecure-skip-tls-verify=true'
             continueOnError: true
 
+          - script: |
+              # Remove kustomization.yaml antes da aplicação
+              rm -f $(System.ArtifactsDirectory)/k8s-manifests/kustomization.yaml
+              echo "Arquivos disponíveis:"
+              ls -la $(System.ArtifactsDirectory)/k8s-manifests/
+            displayName: 'Remove kustomization.yaml and list files'
+
           - task: Kubernetes@1
             displayName: kubectl apply manifests
             inputs:
               connectionType: 'Kubernetes Service Connection'
               kubernetesServiceEndpoint: $(kubernetesServiceConnection)
               command: 'apply'
-              arguments: '-f $(System.ArtifactsDirectory)/k8s-manifests/ --namespace=streamsets --validate=false --insecure-skip-tls-verify=true --exclude="**/kustomization.yaml"'
+              arguments: '-f $(System.ArtifactsDirectory)/k8s-manifests/ --namespace=streamsets --validate=false --insecure-skip-tls-verify=true'
 
           - task: Kubernetes@1
             displayName: kubectl set image
