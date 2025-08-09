@@ -11,7 +11,7 @@ spec:
   resources:
     requests:
       storage: 10Gi
-  storageClassName: default  # Ajustar conforme sua storage class
+  storageClassName: microk8s-hostpath
 
 ---
 apiVersion: v1
@@ -27,7 +27,7 @@ spec:
   resources:
     requests:
       storage: 5Gi
-  storageClassName: default  # Ajustar conforme sua storage class
+  storageClassName: microk8s-hostpath
 
 ---
 apiVersion: v1
@@ -39,8 +39,8 @@ metadata:
     app: streamsets-datacollector
 spec:
   accessModes:
-    - ReadWriteMany  # Para compartilhar recursos entre pods
+    - ReadWriteOnce  # Mudando para RWO pois microk8s-hostpath não suporta RWX
   resources:
     requests:
       storage: 2Gi
-  storageClassName: default  # Ajustar conforme sua storage class
+  storageClassName: microk8s-hostpath
