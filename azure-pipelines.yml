@@ -110,10 +110,3 @@ stages:
                 $(System.ArtifactsDirectory)/k8s-manifests/ingress.yaml
               containers: '$(imageRepository):$(tag)'
 
-          - script: |
-              # Verificar o status do deployment
-              kubectl get pods --namespace=streamsets --selector=app=streamsets-datacollector --insecure-skip-tls-verify=true
-              kubectl get replicasets --namespace=streamsets --selector=app=streamsets-datacollector --insecure-skip-tls-verify=true
-              echo "Deployment atualizado com imagem: $(imageRepository):$(tag)"
-            displayName: 'Verify deployment status'
-            continueOnError: 'true'
