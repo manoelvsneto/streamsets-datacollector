@@ -88,14 +88,7 @@ stages:
               artifactName: 'k8s-manifests'
               downloadPath: '$(System.ArtifactsDirectory)'
 
-          - task: Kubernetes@1
-            displayName: Create namespace if not exists
-            inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: $(kubernetesServiceConnection)
-              command: 'apply'
-              arguments: '-f $(System.ArtifactsDirectory)/k8s-manifests/namespace.yaml --validate=false'
-
+      
           - task: Kubernetes@1
             displayName: kubectl apply manifests
             inputs:
