@@ -92,14 +92,6 @@ stages:
               downloadPath: '$(System.ArtifactsDirectory)'
 
           - task: Kubernetes@1
-            displayName: kubectl apply namespace
-            inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: $(kubernetesServiceConnection)
-              command: 'apply'
-              arguments: '-f $(System.ArtifactsDirectory)/k8s-manifests/namespace.yaml'
-
-          - task: Kubernetes@1
             displayName: kubectl apply manifests
             inputs:
               connectionType: 'Kubernetes Service Connection'
