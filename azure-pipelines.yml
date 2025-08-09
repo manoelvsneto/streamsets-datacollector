@@ -50,9 +50,6 @@ stages:
         tags: |
           $(tag)
           latest
-        arguments: |
-          --build-arg SDC_VERSION=6.0.0-SNAPSHOT
-          --build-arg SDC_LIBS=streamsets-datacollector-jdbc-lib,streamsets-datacollector-jython_2_7-lib
 
     - task: Docker@2
       displayName: Push Docker image to ACR
@@ -92,12 +89,20 @@ stages:
               downloadPath: '$(System.ArtifactsDirectory)'
 
           - task: Kubernetes@1
+            displayName: Create namespace if not exists
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: $(kubernetesServiceConnection)
+              command: 'apply'
+              arguments: '-f $(System.ArtifactsDirectory)/k8s-manifests/namespace.yaml --validate=false'
+
+          - task: Kubernetes@1
             displayName: kubectl apply manifests
             inputs:
               connectionType: 'Kubernetes Service Connection'
               kubernetesServiceEndpoint: $(kubernetesServiceConnection)
               command: 'apply'
-              arguments: '-f $(System.ArtifactsDirectory)/k8s-manifests/ --namespace=streamsets'
+              arguments: '-f $(System.ArtifactsDirectory)/k8s-manifests/ --namespace=streamsets --validate=false'
 
           - task: Kubernetes@1
             displayName: kubectl set image
