@@ -5,7 +5,6 @@ metadata:
   name: streamsets-datacollector-base
 
 resources:
-- namespace.yaml
 - configmap.yaml
 - secret.yaml
 - persistent-volume.yaml

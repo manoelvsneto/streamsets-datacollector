@@ -16,7 +16,7 @@ ENV PATH="/usr/lib/jvm/java-11-openjdk-arm64/bin:/opt/hadoop/bin:${PATH}"
 WORKDIR /opt
 
 # Baixa a aplicação
-RUN wget https://archives.streamsets.com/datacollector/${SDC_VERSION}/tarball/activation/streamsets-datacollector-core-${SDC_VERSION}.tgz
+RUN wget https://archives.streamsets.com/datacollector/6.1.1/tarball/activation/streamsets-datacollector-core-6.1.1.tgz
 
 # Descompacta
 RUN tar -xvzf streamsets-datacollector-core-${SDC_VERSION}.tgz
