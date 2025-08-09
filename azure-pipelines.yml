@@ -93,45 +93,22 @@ stages:
               artifactName: 'k8s-manifests'
               downloadPath: '$(System.ArtifactsDirectory)'
 
-          - task: Kubernetes@1
-            displayName: Verify namespace exists
+          - task: KubernetesManifest@0
+            displayName: Deploy to Kubernetes cluster
             inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: $(kubernetesServiceConnection)
-              command: 'get'
-              arguments: 'namespace streamsets --insecure-skip-tls-verify=true'
-            continueOnError: true
-
-          - script: |
-              # Remove kustomization.yaml antes da aplicação
-              rm -f $(System.ArtifactsDirectory)/k8s-manifests/kustomization.yaml
-              echo "Arquivos disponíveis:"
-              ls -la $(System.ArtifactsDirectory)/k8s-manifests/
-            displayName: 'Remove kustomization.yaml and list files'
-
-          - task: Kubernetes@1
-            displayName: kubectl apply manifests
-            inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: $(kubernetesServiceConnection)
-              command: 'apply'
-              arguments: '-f $(System.ArtifactsDirectory)/k8s-manifests/ --namespace=streamsets --validate=false --insecure-skip-tls-verify=true'
-
-          - task: Kubernetes@1
-            displayName: kubectl set image
-            inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: $(kubernetesServiceConnection)
-              command: 'set'
-              arguments: 'image deployment/streamsets-datacollector streamsets-datacollector=$(imageRepository):$(tag) --namespace=streamsets --insecure-skip-tls-verify=true'
-
-          - task: Kubernetes@1
-            displayName: Wait for rollout to complete
-            inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: $(kubernetesServiceConnection)
-              command: 'rollout'
-              arguments: 'status deployment/streamsets-datacollector --namespace=streamsets --timeout=300s --insecure-skip-tls-verify=true'
+              kubernetesServiceConnection: $(kubernetesServiceConnection)
+              namespace: streamsets
+              action: deploy
+              manifests: |
+                $(System.ArtifactsDirectory)/k8s-manifests/secret.yaml
+                $(System.ArtifactsDirectory)/k8s-manifests/configmap.yaml
+                $(System.ArtifactsDirectory)/k8s-manifests/persistent-volume.yaml
+                $(System.ArtifactsDirectory)/k8s-manifests/deployment.yaml
+                $(System.ArtifactsDirectory)/k8s-manifests/service.yaml
+                $(System.ArtifactsDirectory)/k8s-manifests/hpa.yaml
+                $(System.ArtifactsDirectory)/k8s-manifests/network-policy.yaml
+                $(System.ArtifactsDirectory)/k8s-manifests/ingress.yaml
+              containers: '$(imageRepository):$(tag)'
 
           - script: |
               # Verificar o status do deployment
@@ -139,4 +116,4 @@ stages:
               kubectl get replicasets --namespace=streamsets --selector=app=streamsets-datacollector --insecure-skip-tls-verify=true
               echo "Deployment atualizado com imagem: $(imageRepository):$(tag)"
             displayName: 'Verify deployment status'
-            continueOnError: true
+            continueOnError: 'true'
