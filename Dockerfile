@@ -19,13 +19,13 @@ WORKDIR /opt
 RUN wget https://archives.streamsets.com/datacollector/6.1.1/tarball/activation/streamsets-datacollector-core-6.1.1.tgz
 
 # Descompacta
-RUN tar -xvzf streamsets-datacollector-core-${SDC_VERSION}.tgz
+RUN tar -xvzf streamsets-datacollector-core-6.1.1.tgz
 
 # Renomeia a pasta
-RUN mv streamsets-datacollector-${SDC_VERSION} streamsets
+RUN mv streamsets-datacollector-core-6.1.1 streamsets
 
 # Deleta arquivo
-RUN rm streamsets-datacollector-core-${SDC_VERSION}.tgz
+RUN rm streamsets-datacollector-core-6.1.1.tgz
 
 # Executa a aplicação, "dc" significa "Data Collector"
 ENTRYPOINT [ "/opt/streamsets/bin/streamsets","dc"]
