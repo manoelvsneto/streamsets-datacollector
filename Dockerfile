@@ -137,74 +137,69 @@ RUN set -e && \
         curl -s --max-time 10 --head https://www.google.com > /dev/null && \
         echo "Network connectivity verified" && \
         \
-        # Try multiple download URLs
-        DOWNLOAD_URLS=( \
-            "${SDC_URL}" \
-            "https://archives.streamsets.com/datacollector/${SDC_VERSION}/tarball/streamsets-datacollector-core-${SDC_VERSION}.tgz" \
-            "https://github.com/streamsets/datacollector/releases/download/streamsets-datacollector-core-${SDC_VERSION}/streamsets-datacollector-core-${SDC_VERSION}.tgz" \
-        ) && \
-        \
+        # Try multiple download URLs sequentially
         DOWNLOAD_SUCCESS=false && \
-        for url in "${DOWNLOAD_URLS[@]}"; do \
-            echo "Trying URL: $url" && \
-            if curl -s --max-time 30 --head "$url" > /dev/null; then \
-                echo "URL is accessible: $url" && \
-                \
-                # Download with retry logic
+        \
+        # Try URL 1: Primary archive URL
+        echo "Trying primary URL: ${SDC_URL}" && \
+        if curl -s --max-time 30 --head "${SDC_URL}" > /dev/null; then \
+            echo "Primary URL is accessible" && \
+            for attempt in 1 2 3; do \
+                echo "Download attempt $attempt/3 from primary URL..." && \
+                rm -f /tmp/sdc.tgz && \
+                if curl -L --retry 3 --retry-delay 5 --max-time 600 --connect-timeout 30 --fail --show-error --progress-bar -o /tmp/sdc.tgz "${SDC_URL}"; then \
+                    if [ -f /tmp/sdc.tgz ]; then \
+                        file_size=$(stat -c%s /tmp/sdc.tgz 2>/dev/null || echo "0") && \
+                        echo "File size: $file_size bytes" && \
+                        if [ "$file_size" -gt 52428800 ]; then \
+                            if file /tmp/sdc.tgz | grep -q "gzip compressed"; then \
+                                if tar -tzf /tmp/sdc.tgz > /dev/null 2>&1; then \
+                                    echo "Primary URL download validation successful" && \
+                                    DOWNLOAD_SUCCESS=true && \
+                                    break; \
+                                fi; \
+                            fi; \
+                        fi; \
+                    fi; \
+                    rm -f /tmp/sdc.tgz; \
+                fi && \
+                if [ $attempt -lt 3 ]; then sleep 5; fi; \
+            done; \
+        else \
+            echo "Primary URL not accessible"; \
+        fi && \
+        \
+        # Try URL 2: Alternative archive URL if first failed
+        if [ "$DOWNLOAD_SUCCESS" = false ]; then \
+            ALT_URL="https://archives.streamsets.com/datacollector/${SDC_VERSION}/tarball/streamsets-datacollector-core-${SDC_VERSION}.tgz" && \
+            echo "Trying alternative URL: $ALT_URL" && \
+            if curl -s --max-time 30 --head "$ALT_URL" > /dev/null; then \
+                echo "Alternative URL is accessible" && \
                 for attempt in 1 2 3; do \
-                    echo "Download attempt $attempt/3 from $url..." && \
+                    echo "Download attempt $attempt/3 from alternative URL..." && \
                     rm -f /tmp/sdc.tgz && \
-                    if curl -L \
-                        --retry 3 \
-                        --retry-delay 5 \
-                        --max-time 600 \
-                        --connect-timeout 30 \
-                        --fail \
-                        --show-error \
-                        --progress-bar \
-                        -o /tmp/sdc.tgz \
-                        "$url"; then \
-                        \
-                        echo "Download completed, validating file..." && \
-                        \
-                        # Validate downloaded file
+                    if curl -L --retry 3 --retry-delay 5 --max-time 600 --connect-timeout 30 --fail --show-error --progress-bar -o /tmp/sdc.tgz "$ALT_URL"; then \
                         if [ -f /tmp/sdc.tgz ]; then \
-                            file_size=$(stat -c%s /tmp/sdc.tgz 2>/dev/null || stat -f%z /tmp/sdc.tgz 2>/dev/null || echo "0") && \
+                            file_size=$(stat -c%s /tmp/sdc.tgz 2>/dev/null || echo "0") && \
                             echo "File size: $file_size bytes" && \
-                            \
                             if [ "$file_size" -gt 52428800 ]; then \
                                 if file /tmp/sdc.tgz | grep -q "gzip compressed"; then \
                                     if tar -tzf /tmp/sdc.tgz > /dev/null 2>&1; then \
-                                        echo "File validation successful" && \
+                                        echo "Alternative URL download validation successful" && \
                                         DOWNLOAD_SUCCESS=true && \
-                                        break 2; \
-                                    else \
-                                        echo "File validation failed: corrupted tar archive"; \
+                                        break; \
                                     fi; \
-                                else \
-                                    echo "File validation failed: not a gzip file" && \
-                                    file /tmp/sdc.tgz; \
                                 fi; \
-                            else \
-                                echo "File validation failed: file too small (< 50MB)"; \
                             fi; \
-                        else \
-                            echo "File validation failed: file does not exist"; \
-                        fi && \
+                        fi; \
                         rm -f /tmp/sdc.tgz; \
-                    else \
-                        echo "Download failed (attempt $attempt) from $url"; \
                     fi && \
-                    \
-                    if [ $attempt -lt 3 ]; then \
-                        echo "Waiting 5 seconds before retry..." && \
-                        sleep 5; \
-                    fi; \
+                    if [ $attempt -lt 3 ]; then sleep 5; fi; \
                 done; \
             else \
-                echo "URL not accessible: $url"; \
+                echo "Alternative URL not accessible"; \
             fi; \
-        done && \
+        fi && \
         \
         # Check if we have a valid file
         if [ "$DOWNLOAD_SUCCESS" = false ]; then \
