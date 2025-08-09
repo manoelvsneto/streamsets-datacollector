@@ -4,7 +4,7 @@ FROM ubuntu:22.04
 ARG SDC_VERSION=6.1.1
 
 # Instalação de bibliotecas
-RUN apt-get update -y && apt-get install -y ssh rsync net-tools vim openjdk-11-jdk wget
+RUN apt-get update -y && apt-get install -y ssh rsync net-tools vim openjdk-11-jdk
 
 # Variável de ambiente do Java 11 (compatível com StreamSets 6.x)
 ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-arm64
@@ -15,8 +15,9 @@ ENV PATH="/usr/lib/jvm/java-11-openjdk-arm64/bin:/opt/hadoop/bin:${PATH}"
 # Diretório de trabalho
 WORKDIR /opt
 
-# Baixa a aplicação
-RUN wget https://archives.streamsets.com/datacollector/${SDC_VERSION}/tarball/activation/streamsets-datacollector-core-${SDC_VERSION}.tgz
+# Copia o arquivo tgz do contexto de build
+# #RUN wget https://archives.streamsets.com/datacollector/${SDC_VERSION}/tarball/activation/streamsets-datacollector-core-${SDC_VERSION}.tgz
+COPY streamsets-datacollector-core-${SDC_VERSION}.tgz .
 
 # Descompacta
 RUN tar -xvzf streamsets-datacollector-core-${SDC_VERSION}.tgz
