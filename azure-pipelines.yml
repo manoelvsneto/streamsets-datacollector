@@ -88,14 +88,22 @@ stages:
               artifactName: 'k8s-manifests'
               downloadPath: '$(System.ArtifactsDirectory)'
 
-      
+          - task: Kubernetes@1
+            displayName: Verify namespace exists
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: $(kubernetesServiceConnection)
+              command: 'get'
+              arguments: 'namespace streamsets --insecure-skip-tls-verify=true'
+            continueOnError: true
+
           - task: Kubernetes@1
             displayName: kubectl apply manifests
             inputs:
               connectionType: 'Kubernetes Service Connection'
               kubernetesServiceEndpoint: $(kubernetesServiceConnection)
               command: 'apply'
-              arguments: '-f $(System.ArtifactsDirectory)/k8s-manifests/ --namespace=streamsets --validate=false'
+              arguments: '-f $(System.ArtifactsDirectory)/k8s-manifests/ --namespace=streamsets --validate=false --insecure-skip-tls-verify=true'
 
           - task: Kubernetes@1
             displayName: kubectl set image
@@ -103,4 +111,4 @@ stages:
               connectionType: 'Kubernetes Service Connection'
               kubernetesServiceEndpoint: $(kubernetesServiceConnection)
               command: 'set'
-              arguments: 'image deployment/streamsets-datacollector streamsets-datacollector=$(containerRegistry)/$(imageRepository):$(tag) --namespace=streamsets'
+              arguments: 'image deployment/streamsets-datacollector streamsets-datacollector=$(containerRegistry)/$(imageRepository):$(tag) --namespace=streamsets --insecure-skip-tls-verify=true'
