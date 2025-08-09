@@ -124,3 +124,19 @@ stages:
               kubernetesServiceEndpoint: $(kubernetesServiceConnection)
               command: 'set'
               arguments: 'image deployment/streamsets-datacollector streamsets-datacollector=$(imageRepository):$(tag) --namespace=streamsets --insecure-skip-tls-verify=true'
+
+          - task: Kubernetes@1
+            displayName: Wait for rollout to complete
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: $(kubernetesServiceConnection)
+              command: 'rollout'
+              arguments: 'status deployment/streamsets-datacollector --namespace=streamsets --timeout=300s --insecure-skip-tls-verify=true'
+
+          - script: |
+              # Verificar o status do deployment
+              kubectl get pods --namespace=streamsets --selector=app=streamsets-datacollector --insecure-skip-tls-verify=true
+              kubectl get replicasets --namespace=streamsets --selector=app=streamsets-datacollector --insecure-skip-tls-verify=true
+              echo "Deployment atualizado com imagem: $(imageRepository):$(tag)"
+            displayName: 'Verify deployment status'
+            continueOnError: true
