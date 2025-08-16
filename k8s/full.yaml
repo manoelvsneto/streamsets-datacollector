@@ -1,0 +1,283 @@
+# 00-namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: streamsets
+---
+# 01-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: streamsets-config
+  namespace: streamsets
+data:
+  # Flags do Java (GC no stdout) e portas
+  SDC_JAVA_OPTS: "-Xms512m -Xmx2g -Djdk.nio.maxCachedBufferSize=262144 -Xlog:gc*:stdout:time,uptime,level"
+  SDC_CONF_HTTP_PORT: "18630"
+  SDC_CONF_HTTPS_PORT: "18631"
+
+  # sdc.properties mínimo (ajuste conforme necessidade)
+  sdc.properties: |-
+    http.port=${SDC_CONF_HTTP_PORT}
+    https.port=${SDC_CONF_HTTPS_PORT}
+    http.authentication=none
+    production.maxBatchSize=1000
+    preview.maxBatchSize=1000
+    log.level=INFO
+---
+# 02-secrets.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: streamsets-secret
+  namespace: streamsets
+type: Opaque
+data:
+  # echo -n 'admin' | base64
+  admin-user: YWRtaW4=
+  # echo -n 'changeme!' | base64
+  admin-password: Y2hhbmdlbWUh
+---
+# 03-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: streamsets-data-pvc
+  namespace: streamsets
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: microk8s-hostpath
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: streamsets-logs-pvc
+  namespace: streamsets
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: microk8s-hostpath
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: streamsets-resources-pvc
+  namespace: streamsets
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: microk8s-hostpath
+---
+# 04-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streamsets-datacollector
+  namespace: streamsets
+  labels:
+    app: streamsets-datacollector
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: streamsets-datacollector
+  template:
+    metadata:
+      labels:
+        app: streamsets-datacollector
+    spec:
+      # Se usar registro privado, descomente e aponte o secret correto
+      # imagePullSecrets:
+      # - name: acr-secret
+      securityContext:
+        runAsUser: 20159
+        runAsGroup: 20159
+        fsGroup: 20159
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      containers:
+      - name: streamsets-datacollector
+        image: manoelvsneto/streamsets-datacollector:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 18630
+          name: http
+        - containerPort: 18631
+          name: https
+        env:
+        - name: SDC_JAVA_OPTS
+          valueFrom:
+            configMapKeyRef:
+              name: streamsets-config
+              key: SDC_JAVA_OPTS
+        - name: SDC_CONF_HTTP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: streamsets-config
+              key: SDC_CONF_HTTP_PORT
+        - name: SDC_CONF_HTTPS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: streamsets-config
+              key: SDC_CONF_HTTPS_PORT
+        - name: ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: streamsets-secret
+              key: admin-user
+        - name: ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: streamsets-secret
+              key: admin-password
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "2Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        livenessProbe:
+          httpGet:
+            path: /public-rest/ping
+            port: 18630
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 6
+        readinessProbe:
+          httpGet:
+            path: /public-rest/ping
+            port: 18630
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 6
+        startupProbe:
+          httpGet:
+            path: /public-rest/ping
+            port: 18630
+          periodSeconds: 10
+          failureThreshold: 60
+        volumeMounts:
+        - name: data-volume
+          mountPath: /opt/streamsets/var
+        - name: logs-volume
+          mountPath: /opt/streamsets/log
+        - name: resources-volume
+          mountPath: /resources
+        - name: config-volume
+          mountPath: /etc/sdc/sdc.properties
+          subPath: sdc.properties
+          readOnly: true
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: streamsets-data-pvc
+      - name: logs-volume
+        persistentVolumeClaim:
+          claimName: streamsets-logs-pvc
+      - name: resources-volume
+        persistentVolumeClaim:
+          claimName: streamsets-resources-pvc
+      - name: config-volume
+        configMap:
+          name: streamsets-config
+---
+# 05-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: streamsets-datacollector
+  namespace: streamsets
+  labels:
+    app: streamsets-datacollector
+spec:
+  type: ClusterIP
+  selector:
+    app: streamsets-datacollector
+  ports:
+  - name: http
+    port: 18630
+    targetPort: 18630
+    protocol: TCP
+  - name: https
+    port: 18631
+    targetPort: 18631
+    protocol: TCP
+---
+# 06-ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: streamsets-ingress
+  namespace: streamsets
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - streamsets.archse.eng.br
+    secretName: streamsets-tls
+  rules:
+  - host: streamsets.archse.eng.br
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: streamsets-datacollector
+            port:
+              number: 18630
+---
+# 07-hpa.yaml (opcional)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: streamsets-datacollector
+  namespace: streamsets
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: streamsets-datacollector
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+---
+# 08-network-policy.yaml (permissiva; ajuste se quiser restringir)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: streamsets-allow-all
+  namespace: streamsets
+spec:
+  podSelector:
+    matchLabels:
+      app: streamsets-datacollector
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - {}
+  egress:
+  - {}
