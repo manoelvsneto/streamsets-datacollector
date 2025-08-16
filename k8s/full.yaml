@@ -224,26 +224,26 @@ metadata:
   name: streamsets-ingress
   namespace: streamsets
   annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
 spec:
   ingressClassName: nginx
   tls:
-  - hosts:
-    - streamsets.archse.eng.br
-    secretName: streamsets-tls
+    - hosts:
+        - streamsets.archse.eng.br
+      secretName: streamsets-tls
   rules:
-  - host: streamsets.archse.eng.br
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: streamsets-datacollector
-            port:
-              number: 18630
+    - host: streamsets.archse.eng.br
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: streamsets-datacollector
+                port:
+                  number: 18630
 ---
 # 07-certificate.yaml  (cert explícito para o domínio)
 apiVersion: cert-manager.io/v1
@@ -255,11 +255,10 @@ spec:
   secretName: streamsets-tls
   commonName: streamsets.archse.eng.br
   dnsNames:
-  - streamsets.archse.eng.br
+    - streamsets.archse.eng.br
   issuerRef:
-    name: letsencrypt-prod     # ou letsencrypt-staging para testar primeiro
+    name: letsencrypt-prod
     kind: ClusterIssuer
-
 ---
 # 07-hpa.yaml (opcional)
 apiVersion: autoscaling/v2
