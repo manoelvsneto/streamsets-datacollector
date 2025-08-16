@@ -6,6 +6,37 @@ kind: Namespace
 metadata:
   name: streamsets
 ---
+# 00-clusterissuers.yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    email: contato@archse.eng.br
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    email: contato@archse.eng.br
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-staging
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+---
 # 01-configmap.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -218,6 +249,7 @@ spec:
     protocol: TCP
 ---
 # 06-ingress.yaml  (atualizado: sem redirect forçado para liberar o HTTP-01)
+# 06-ingress.yaml  (sem redirect forçado para liberar o HTTP-01)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -252,7 +284,7 @@ metadata:
   name: streamsets-cert
   namespace: streamsets
 spec:
-  secretName: streamsets-tls  
+  secretName: streamsets-tls             # será criado automaticamente como type: kubernetes.io/tls
   commonName: streamsets.archse.eng.br
   dnsNames:
     - streamsets.archse.eng.br
