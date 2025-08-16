@@ -252,7 +252,7 @@ metadata:
   name: streamsets-cert
   namespace: streamsets
 spec:
-  secretName: streamsets-tls
+  secretName: streamsets-tls  
   commonName: streamsets.archse.eng.br
   dnsNames:
     - streamsets.archse.eng.br
