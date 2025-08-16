@@ -75,7 +75,7 @@ spec:
       storage: 2Gi
   storageClassName: microk8s-hostpath
 ---
-# 04-deployment.yaml
+# 04-deployment.yaml (atualizado para corrigir permissões e diretórios de escrita)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -95,19 +95,14 @@ spec:
       labels:
         app: streamsets-datacollector
     spec:
-      # Se usar registro privado, descomente e aponte o secret correto
-      # imagePullSecrets:
-      # - name: acr-secret
-      securityContext:
-        runAsUser: 20159
-        runAsGroup: 20159
-        fsGroup: 20159
       nodeSelector:
         kubernetes.io/arch: arm64
       containers:
       - name: streamsets-datacollector
         image: manoelvsneto/streamsets-datacollector:latest
         imagePullPolicy: Always
+        securityContext:
+          runAsUser: 0            # roda como root para permitir escrita em /opt/streamsets
         ports:
         - containerPort: 18630
           name: http
@@ -169,10 +164,15 @@ spec:
           periodSeconds: 10
           failureThreshold: 60
         volumeMounts:
+        # MESMO PVC montado em /opt/streamsets/var e /opt/streamsets/data (evita Permission denied do sdc.id)
         - name: data-volume
           mountPath: /opt/streamsets/var
+        - name: data-volume
+          mountPath: /opt/streamsets/data
+        # Logs em PVC (evita Permission denied do gc.log)
         - name: logs-volume
           mountPath: /opt/streamsets/log
+        # Resources e sdc.properties
         - name: resources-volume
           mountPath: /resources
         - name: config-volume
