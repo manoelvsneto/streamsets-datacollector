@@ -91,12 +91,5 @@ stages:
               namespace: $(kubernetesNamespace)
               action: deploy
               manifests: |
-                $(System.ArtifactsDirectory)/k8s-manifests/secret.yaml
-                $(System.ArtifactsDirectory)/k8s-manifests/configmap.yaml
-                $(System.ArtifactsDirectory)/k8s-manifests/persistent-volume.yaml
-                $(System.ArtifactsDirectory)/k8s-manifests/deployment.yaml
-                $(System.ArtifactsDirectory)/k8s-manifests/service.yaml
-                $(System.ArtifactsDirectory)/k8s-manifests/hpa.yaml
-                $(System.ArtifactsDirectory)/k8s-manifests/network-policy.yaml
-                $(System.ArtifactsDirectory)/k8s-manifests/ingress.yaml
+                $(System.ArtifactsDirectory)/k8s-manifests/full.yaml
               containers: '$(imageRepository):$(tag)'
