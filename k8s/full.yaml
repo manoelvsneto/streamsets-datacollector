@@ -1,3 +1,5 @@
+
+
 # 00-namespace.yaml
 apiVersion: v1
 kind: Namespace
@@ -215,16 +217,16 @@ spec:
     targetPort: 18631
     protocol: TCP
 ---
-# 06-ingress.yaml
+# 06-ingress.yaml  (atualizado: sem redirect forçado para liberar o HTTP-01)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: streamsets-ingress
   namespace: streamsets
   annotations:
-    kubernetes.io/ingress.class: "nginx"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
 spec:
   ingressClassName: nginx
   tls:
@@ -243,6 +245,22 @@ spec:
             port:
               number: 18630
 ---
+# 07-certificate.yaml  (cert explícito para o domínio)
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: streamsets-cert
+  namespace: streamsets
+spec:
+  secretName: streamsets-tls
+  commonName: streamsets.archse.eng.br
+  dnsNames:
+  - streamsets.archse.eng.br
+  issuerRef:
+    name: letsencrypt-prod     # ou letsencrypt-staging para testar primeiro
+    kind: ClusterIssuer
+
+---
 # 07-hpa.yaml (opcional)
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -255,7 +273,7 @@ spec:
     kind: Deployment
     name: streamsets-datacollector
   minReplicas: 1
-  maxReplicas: 3
+  maxReplicas: 1
   metrics:
   - type: Resource
     resource:
