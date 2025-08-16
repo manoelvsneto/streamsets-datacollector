@@ -313,20 +313,49 @@ spec:
         type: Utilization
         averageUtilization: 70
 ---
-# 08-network-policy.yaml (permissiva; ajuste se quiser restringir)
+# 08-network-policy.yaml  (atualize no namespace streamsets)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: streamsets-allow-all
+  name: streamsets-allow-datacollector
   namespace: streamsets
 spec:
   podSelector:
     matchLabels:
       app: streamsets-datacollector
-  policyTypes:
-  - Ingress
-  - Egress
+  policyTypes: [Ingress, Egress]
   ingress:
   - {}
   egress:
   - {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-acme-http01-solvers
+  namespace: streamsets
+spec:
+  podSelector:
+    matchLabels:
+      "acme.cert-manager.io/http01-solver": "true"
+  policyTypes: [Ingress, Egress]
+  ingress:
+  - {}     # libera acesso aos pods solver do cert-manager
+  egress:
+  - {}     # permite que os pods solver acessem a Internet/ACME
+
+---
+# (aplique iguais nos outros namespaces que emitem certificados)
+# 08-network-policy-default.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-acme-http01-solvers
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      "acme.cert-manager.io/http01-solver": "true"
+  policyTypes: [Ingress, Egress]
+  ingress: [ {} ]
+  egress:  [ {} ]
