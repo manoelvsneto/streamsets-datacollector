@@ -248,17 +248,22 @@ spec:
     targetPort: 18631
     protocol: TCP
 ---
-# 06-ingress.yaml  (atualizado: sem redirect forçado para liberar o HTTP-01)
-# 06-ingress.yaml  (sem redirect forçado para liberar o HTTP-01)
+# 06-ingress.yaml (atualizado p/ HTTP-01 "edit-in-place")
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: streamsets-ingress
   namespace: streamsets
   annotations:
+    # Emissor
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Faz o cert-manager EDITAR este Ingress com a rota /.well-known/acme-challenge/*
+    acme.cert-manager.io/http01-edit-in-place: "true"
+    # Garante que o HTTP permaneça liberado durante o desafio
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    # Compatibilidade com controladores antigos
+    kubernetes.io/ingress.class: "nginx"
 spec:
   ingressClassName: nginx
   tls:
