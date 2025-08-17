@@ -251,12 +251,9 @@ metadata:
   name: streamsets-ingress
   namespace: streamsets
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    acme.cert-manager.io/http01-edit-in-place: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
-    # <- isto faz a raiz "/" cair em /collector (sem mexer no solver)
-    nginx.ingress.kubernetes.io/app-root: /collector
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx
   tls:
@@ -268,6 +265,13 @@ spec:
     - host: streamsets.archse.eng.br
       http:
         paths:
+         - path: /.well-known/acme-challenge/
+            pathType: Prefix
+            backend:
+              service:
+                name: cm-acme-http-solver-bkfpm
+                port:
+                  number: 8089
           - path: /
             pathType: Prefix
             backend:
