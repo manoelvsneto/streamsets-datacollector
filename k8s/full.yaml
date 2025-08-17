@@ -5,64 +5,39 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: streamsets
+  labels:
+    app.kubernetes.io/part-of: streamsets
 ---
-# 00-clusterissuers.yaml
+# 01-clusterissuers.yaml
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-prod
+  labels:
+    app.kubernetes.io/part-of: streamsets
 spec:
   acme:
     email: contato@archse.eng.br
     server: https://acme-v02.api.letsencrypt.org/directory
-    privateKeySecretRef: { name: letsencrypt-prod }
-    solvers:
-    - http01:
-        ingress:
-          class: nginx
----
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-staging
-spec:
-  acme:
-    email: contato@archse.eng.br
-    server: https://acme-staging-v02.api.letsencrypt.org/directory
-    privateKeySecretRef: { name: letsencrypt-staging }
-    solvers:
-    - http01:
-        ingress:
-          class: nginx
----
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-staging
-spec:
-  acme:
-    email: contato@archse.eng.br
-    server: https://acme-staging-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
-      name: letsencrypt-staging
+      name: letsencrypt-prod
     solvers:
-    - http01:
-        ingress:
-          class: nginx
+      - http01:
+          ingress:
+            class: nginx
 ---
-# 01-configmap.yaml
+# 02-configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: streamsets-config
   namespace: streamsets
+  labels:
+    app.kubernetes.io/part-of: streamsets
 data:
-  # Flags do Java (GC no stdout) e portas
   SDC_JAVA_OPTS: "-Xms512m -Xmx2g -Djdk.nio.maxCachedBufferSize=262144 -Xlog:gc*:stdout:time,uptime,level"
   SDC_CONF_HTTP_PORT: "18630"
   SDC_CONF_HTTPS_PORT: "18631"
-
-  # sdc.properties mínimo (ajuste conforme necessidade)
   sdc.properties: |-
     http.port=${SDC_CONF_HTTP_PORT}
     https.port=${SDC_CONF_HTTPS_PORT}
@@ -71,25 +46,27 @@ data:
     preview.maxBatchSize=1000
     log.level=INFO
 ---
-# 02-secrets.yaml
+# 03-secret-admin.yaml
 apiVersion: v1
 kind: Secret
 metadata:
   name: streamsets-secret
   namespace: streamsets
+  labels:
+    app.kubernetes.io/part-of: streamsets
 type: Opaque
 data:
-  # echo -n 'admin' | base64
-  admin-user: YWRtaW4=
-  # echo -n 'changeme!' | base64
-  admin-password: Y2hhbmdlbWUh
+  admin-user: YWRtaW4=          # "admin"
+  admin-password: Y2hhbmdlbWUh  # "changeme!"
 ---
-# 03-pvc.yaml
+# 04-pvcs.yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: streamsets-data-pvc
   namespace: streamsets
+  labels:
+    app.kubernetes.io/part-of: streamsets
 spec:
   accessModes: [ReadWriteOnce]
   resources:
@@ -102,6 +79,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: streamsets-logs-pvc
   namespace: streamsets
+  labels:
+    app.kubernetes.io/part-of: streamsets
 spec:
   accessModes: [ReadWriteOnce]
   resources:
@@ -114,6 +93,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: streamsets-resources-pvc
   namespace: streamsets
+  labels:
+    app.kubernetes.io/part-of: streamsets
 spec:
   accessModes: [ReadWriteOnce]
   resources:
@@ -121,163 +102,176 @@ spec:
       storage: 2Gi
   storageClassName: microk8s-hostpath
 ---
-# 04-deployment.yaml (atualizado para corrigir permissões e diretórios de escrita)
+# 05-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: streamsets-datacollector
   namespace: streamsets
   labels:
-    app: streamsets-datacollector
+    app.kubernetes.io/name: streamsets-datacollector
+    app.kubernetes.io/part-of: streamsets
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: streamsets-datacollector
+      app.kubernetes.io/name: streamsets-datacollector
   template:
     metadata:
       labels:
-        app: streamsets-datacollector
+        app.kubernetes.io/name: streamsets-datacollector
+        app.kubernetes.io/part-of: streamsets
     spec:
       nodeSelector:
         kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 0
       containers:
-      - name: streamsets-datacollector
-        image: manoelvsneto/streamsets-datacollector:latest
-        imagePullPolicy: Always
-        securityContext:
-          runAsUser: 0            # roda como root para permitir escrita em /opt/streamsets
-        ports:
-        - containerPort: 18630
-          name: http
-        - containerPort: 18631
-          name: https
-        env:
-        - name: SDC_JAVA_OPTS
-          valueFrom:
-            configMapKeyRef:
-              name: streamsets-config
-              key: SDC_JAVA_OPTS
-        - name: SDC_CONF_HTTP_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: streamsets-config
-              key: SDC_CONF_HTTP_PORT
-        - name: SDC_CONF_HTTPS_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: streamsets-config
-              key: SDC_CONF_HTTPS_PORT
-        - name: ADMIN_USER
-          valueFrom:
-            secretKeyRef:
-              name: streamsets-secret
-              key: admin-user
-        - name: ADMIN_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: streamsets-secret
-              key: admin-password
-        resources:
-          requests:
-            cpu: "500m"
-            memory: "2Gi"
-          limits:
-            cpu: "2000m"
-            memory: "4Gi"
-        livenessProbe:
-          httpGet:
-            path: /public-rest/ping
-            port: 18630
-          initialDelaySeconds: 120
-          periodSeconds: 30
-          timeoutSeconds: 10
-          failureThreshold: 6
-        readinessProbe:
-          httpGet:
-            path: /public-rest/ping
-            port: 18630
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 6
-        startupProbe:
-          httpGet:
-            path: /public-rest/ping
-            port: 18630
-          periodSeconds: 10
-          failureThreshold: 60
-        volumeMounts:
-        # MESMO PVC montado em /opt/streamsets/var e /opt/streamsets/data (evita Permission denied do sdc.id)
-        - name: data-volume
-          mountPath: /opt/streamsets/var
-        - name: data-volume
-          mountPath: /opt/streamsets/data
-        # Logs em PVC (evita Permission denied do gc.log)
-        - name: logs-volume
-          mountPath: /opt/streamsets/log
-        # Resources e sdc.properties
-        - name: resources-volume
-          mountPath: /resources
-        - name: config-volume
-          mountPath: /etc/sdc/sdc.properties
-          subPath: sdc.properties
-          readOnly: true
+        - name: streamsets-datacollector
+          image: manoelvsneto/streamsets-datacollector:latest
+          imagePullPolicy: Always
+          securityContext:
+            runAsUser: 0
+          ports:
+            - containerPort: 18630
+              name: http
+            - containerPort: 18631
+              name: https
+          env:
+            - name: SDC_JAVA_OPTS
+              valueFrom:
+                configMapKeyRef:
+                  name: streamsets-config
+                  key: SDC_JAVA_OPTS
+            - name: SDC_CONF_HTTP_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: streamsets-config
+                  key: SDC_CONF_HTTP_PORT
+            - name: SDC_CONF_HTTPS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: streamsets-config
+                  key: SDC_CONF_HTTPS_PORT
+            - name: ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: streamsets-secret
+                  key: admin-user
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: streamsets-secret
+                  key: admin-password
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+          livenessProbe:
+            httpGet:
+              path: /public-rest/ping
+              port: 18630
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /public-rest/ping
+              port: 18630
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          startupProbe:
+            httpGet:
+              path: /public-rest/ping
+              port: 18630
+            periodSeconds: 10
+            failureThreshold: 60
+          volumeMounts:
+            - name: data-volume
+              mountPath: /opt/streamsets/var
+            - name: data-volume
+              mountPath: /opt/streamsets/data
+            - name: logs-volume
+              mountPath: /opt/streamsets/log
+            - name: resources-volume
+              mountPath: /resources
+            - name: config-volume
+              mountPath: /etc/sdc/sdc.properties
+              subPath: sdc.properties
+              readOnly: true
       volumes:
-      - name: data-volume
-        persistentVolumeClaim:
-          claimName: streamsets-data-pvc
-      - name: logs-volume
-        persistentVolumeClaim:
-          claimName: streamsets-logs-pvc
-      - name: resources-volume
-        persistentVolumeClaim:
-          claimName: streamsets-resources-pvc
-      - name: config-volume
-        configMap:
-          name: streamsets-config
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: streamsets-data-pvc
+        - name: logs-volume
+          persistentVolumeClaim:
+            claimName: streamsets-logs-pvc
+        - name: resources-volume
+          persistentVolumeClaim:
+            claimName: streamsets-resources-pvc
+        - name: config-volume
+          configMap:
+            name: streamsets-config
 ---
-# 05-service.yaml
+# 06-service.yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: streamsets-datacollector
   namespace: streamsets
   labels:
-    app: streamsets-datacollector
+    app.kubernetes.io/name: streamsets-datacollector
+    app.kubernetes.io/part-of: streamsets
 spec:
   type: ClusterIP
   selector:
-    app: streamsets-datacollector
+    app.kubernetes.io/name: streamsets-datacollector
   ports:
-  - name: http
-    port: 18630
-    targetPort: 18630
-    protocol: TCP
-  - name: https
-    port: 18631
-    targetPort: 18631
-    protocol: TCP
+    - name: http
+      port: 18630
+      targetPort: 18630
+      protocol: TCP
+    - name: https
+      port: 18631
+      targetPort: 18631
+      protocol: TCP
 ---
-# 06-ingress.yaml (atualizado p/ HTTP-01 "edit-in-place")
+# 07-ingress.yaml
+# **ÚNICO** objeto que dispara o certificado via "ingress-shim".
+# NÃO CRIE nenhum Certificate separado para evitar conflitos.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: streamsets-ingress
   namespace: streamsets
+  labels:
+    app.kubernetes.io/part-of: streamsets
   annotations:
+    # emissor usado pelo cert-manager
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    # habilita edição "in-place" para o HTTP-01 (o cert-manager adicionará
+    # automaticamente o path '/.well-known/acme-challenge/...'):
     acme.cert-manager.io/http01-edit-in-place: "true"
+    # não force redirect durante o desafio
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    # compatibilidade com controladores antigos
+    kubernetes.io/ingress.class: nginx
 spec:
   ingressClassName: nginx
   tls:
+    # use um NOME DE SECRET NOVO para evitar colidir com recursos antigos
     - hosts:
         - streamsets.archse.eng.br
-      secretName: streamsets-tls
+      secretName: streamsets-tls2   # será criado como type: kubernetes.io/tls
   rules:
     - host: streamsets.archse.eng.br
       http:
@@ -289,72 +283,4 @@ spec:
                 name: streamsets-datacollector
                 port:
                   number: 18630
-
----
-# 07-certificate.yaml  (cert explícito para o domínio)
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: streamsets-cert
-  namespace: streamsets
-spec:
-  secretName: streamsets-tls             # será criado automaticamente como type: kubernetes.io/tls
-  commonName: streamsets.archse.eng.br
-  dnsNames:
-    - streamsets.archse.eng.br
-  issuerRef:
-    name: letsencrypt-prod
-    kind: ClusterIssuer
----
-# 07-hpa.yaml (opcional)
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: streamsets-datacollector
-  namespace: streamsets
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: streamsets-datacollector
-  minReplicas: 1
-  maxReplicas: 1
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
----
-# 08-network-policy.yaml  (atualize no namespace streamsets)
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: streamsets-allow-datacollector
-  namespace: streamsets
-spec:
-  podSelector:
-    matchLabels:
-      app: streamsets-datacollector
-  policyTypes: [Ingress, Egress]
-  ingress:
-  - {}
-  egress:
-  - {}
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-acme-http01-solvers
-  namespace: streamsets
-spec:
-  podSelector:
-    matchLabels:
-      "acme.cert-manager.io/http01-solver": "true"
-  policyTypes: [Ingress, Egress]
-  ingress:
-  - {}     # libera acesso aos pods solver do cert-manager
-  egress:
-  - {}     # permite que os pods solver acessem a Internet/ACME
 
