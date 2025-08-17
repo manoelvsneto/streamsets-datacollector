@@ -245,33 +245,25 @@ spec:
       protocol: TCP
 ---
 # 07-ingress.yaml
-# **ÚNICO** objeto que dispara o certificado via "ingress-shim".
-# NÃO CRIE nenhum Certificate separado para evitar conflitos.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: streamsets-ingress
   namespace: streamsets
-  labels:
-    app.kubernetes.io/part-of: streamsets
   annotations:
-    # emissor usado pelo cert-manager
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    # habilita edição "in-place" para o HTTP-01 (o cert-manager adicionará
-    # automaticamente o path '/.well-known/acme-challenge/...'):
     acme.cert-manager.io/http01-edit-in-place: "true"
-    # não force redirect durante o desafio
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
-    # compatibilidade com controladores antigos
-    kubernetes.io/ingress.class: nginx
+    # <- isto faz a raiz "/" cair em /collector (sem mexer no solver)
+    nginx.ingress.kubernetes.io/app-root: /collector
 spec:
   ingressClassName: nginx
   tls:
-    # use um NOME DE SECRET NOVO para evitar colidir com recursos antigos
     - hosts:
         - streamsets.archse.eng.br
-      secretName: streamsets-tls2   # será criado como type: kubernetes.io/tls
+      # use um secret NOVO para evitar conflito com objetos antigos
+      secretName: streamsets-tls2
   rules:
     - host: streamsets.archse.eng.br
       http:
@@ -283,4 +275,5 @@ spec:
                 name: streamsets-datacollector
                 port:
                   number: 18630
+
 
