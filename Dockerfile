@@ -13,7 +13,7 @@ ENV PATH="/usr/lib/jvm/java-11-openjdk-arm64/bin:/opt/hadoop/bin:${PATH}"
 WORKDIR /opt
 
 # Baixa a aplicação StreamSets 6.1.1
-RUN wget --tries=5 --retry-connrefused --waitretry=10 --timeout=30 https://archives.streamsets.com/datacollector/6.1.1/tarball/activation/streamsets-datacollector-core-6.1.1.tgz
+#RUN wget --tries=5 --retry-connrefused --waitretry=10 --timeout=30 https://archives.streamsets.com/datacollector/6.1.1/tarball/activation/streamsets-datacollector-core-6.1.1.tgz
 
 # Descompacta
 RUN tar -xvzf streamsets-datacollector-core-6.1.1.tgz
