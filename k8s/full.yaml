@@ -13,18 +13,16 @@ apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-prod
-  labels:
-    app.kubernetes.io/part-of: streamsets
 spec:
   acme:
-    email: contato@archse.eng.br
+    email: neto.manoel@gmail.com
     server: https://acme-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
-      name: letsencrypt-prod
+      name: letsencrypt-prod-key
     solvers:
       - http01:
           ingress:
-            class: nginx
+            ingressClassName: nginx
 ---
 # 02-configmap.yaml
 apiVersion: v1
