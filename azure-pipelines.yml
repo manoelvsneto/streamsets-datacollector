@@ -55,15 +55,7 @@ stages:
         docker buildx imagetools inspect $(imageRepository):$(tag)
       displayName: 'Buildx: build & push (amd64 + arm64)'
 
-    - task: PublishBuildArtifacts@1
-      displayName: Publish Kubernetes manifests
-      inputs:
-        pathToPublish: '$(Build.SourcesDirectory)/k8s'
-        artifactName: 'k8s-manifests'
 
-    - script: |
-        find "$(Build.ArtifactStagingDirectory)" -name "kustomization.yaml" -delete || true
-      displayName: Clean kustomization files from artifacts
 
 - stage: Deploy_Prod
   displayName: Deploy to Production
@@ -79,11 +71,6 @@ stages:
       runOnce:
         deploy:
           steps:
-          - task: DownloadBuildArtifacts@0
-            inputs:
-              artifactName: 'k8s-manifests'
-              downloadPath: '$(System.ArtifactsDirectory)'
-
           - task: KubernetesManifest@0
             displayName: Apply manifests
             inputs:
