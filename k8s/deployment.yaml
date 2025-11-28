@@ -18,49 +18,56 @@ spec:
       containers:
       - name: streamsets
         image: streamsets/streamsets:7.0.0-latest
-        args: ["start-dev"]
         ports:
-        - containerPort: 8080
+        - containerPort: 18630
           name: http
-        - containerPort: 8443
+        - containerPort: 18631
           name: https
         env:
-        - name: KC_BOOTSTRAP_ADMIN_USERNAME
-          value: "admin"
-        - name: KC_BOOTSTRAP_ADMIN_PASSWORD
-          value: "admin"
-        - name: KC_PROXY_HEADERS
-          value: "xforwarded"
-        - name: KC_HOSTNAME
-          value: "streamsets.archse.eng.br"
-        - name: KC_HOSTNAME_STRICT
-          value: "false"
-        - name: KC_HTTP_ENABLED
-          value: "true"
-        - name: KC_HEALTH_ENABLED
-          value: "true"
+        - name: SDC_JAVA_OPTS
+          value: "-Xmx1024m -Xms512m"
+        - name: SDC_CONF
+          value: "/opt/streamsets/etc"
+        - name: SDC_DATA
+          value: "/opt/streamsets/data"
+        - name: SDC_LOG
+          value: "/opt/streamsets/log"
+        - name: SDC_RESOURCES
+          value: "/opt/streamsets/resources"
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "500m"
-          limits:
             memory: "1Gi"
-            cpu: "1000m"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: data
+          mountPath: /opt/streamsets/data
+        - name: logs
+          mountPath: /opt/streamsets/log
         readinessProbe:
           httpGet:
-            path: /
-            port: 8080
+            path: /collector/main
+            port: 18630
             scheme: HTTP
-          initialDelaySeconds: 90
+          initialDelaySeconds: 60
           periodSeconds: 10
-          timeoutSeconds: 10
-          failureThreshold: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
         livenessProbe:
           httpGet:
-            path: /
-            port: 8080
+            path: /collector/main
+            port: 18630
             scheme: HTTP
-          initialDelaySeconds: 120
+          initialDelaySeconds: 90
           periodSeconds: 30
           timeoutSeconds: 10
-          failureThreshold: 5
+          failureThreshold: 3
+      volumes:
+      - name: data
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
+      imagePullSecrets:
+      - name: regcred
