@@ -38,6 +38,85 @@ If you need help with production systems, you can check out the variety of suppo
 
 The default login is: `admin` / `admin`.
 
+### Kubernetes Deployment
+
+This project includes Kubernetes manifests for deploying StreamSets Data Collector with the following features:
+- SSL/TLS termination with Let's Encrypt
+- Nginx Ingress
+- Persistent storage
+- Auto-scaling ready
+
+#### Prerequisites
+- Kubernetes cluster (tested on Oracle Cloud)
+- cert-manager installed
+- nginx-ingress-controller installed
+- Azure DevOps pipeline configured
+
+#### Deploy using Azure Pipeline
+
+1. Configure the following variables in Azure DevOps:
+   - `DOCKER_REGISTRY_CONNECTION`: Docker registry service connection
+   - `CONTAINER_REGISTRY`: Container registry URL
+   - `LETSENCRYPT_EMAIL`: Email for SSL certificates
+   - `STREAMSETS_DOMAIN`: Your domain (e.g., streamsets.archse.eng.br)
+
+2. Push to main branch to trigger deployment
+
+#### Manual Deployment
+
+```bash
+# Build the Docker image
+docker build -t your-registry/streamsets/datacollector:latest .
+
+# Apply Kubernetes manifests
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/cluster-issuer.yaml
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/secrets.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/services.yaml
+kubectl apply -f k8s/certificate.yaml
+kubectl apply -f k8s/ingress.yaml
+```
+
+#### Troubleshooting 503 Errors
+
+If you receive a 503 error from Nginx:
+
+1. Check pod status:
+```bash
+kubectl get pods -n streamsets
+kubectl describe pod <pod-name> -n streamsets
+kubectl logs <pod-name> -n streamsets
+```
+
+2. Check if the pod is ready:
+```bash
+kubectl get pods -n streamsets -w
+```
+
+3. Check service endpoints:
+```bash
+kubectl get endpoints -n streamsets
+```
+
+4. Test the service directly:
+```bash
+kubectl port-forward -n streamsets svc/streamsets-service 18630:18630
+# Then access http://localhost:18630/collector/main
+```
+
+5. Check ingress status:
+```bash
+kubectl describe ingress streamsets-ingress -n streamsets
+```
+
+6. Common issues:
+   - Pod not ready: Wait for readiness probe to pass (up to 2 minutes)
+   - Wrong path: StreamSets UI is at `/collector/main` not `/`
+   - Port mismatch: Ensure service uses port 18630
+   - Certificate pending: Wait for cert-manager to issue certificate
+
 ### Detailed Usage
 
 * You can specify a custom configs by mounting them as a volume to /etc/sdc or `/etc/sdc/<configuration file>`

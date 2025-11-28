@@ -46,21 +46,30 @@ spec:
           mountPath: /opt/streamsets/data
         - name: logs
           mountPath: /opt/streamsets/log
-        readinessProbe:
+        startupProbe:
           httpGet:
-            path: /collector/main
+            path: /
             port: 18630
             scheme: HTTP
-          initialDelaySeconds: 60
+          initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
+          failureThreshold: 12
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 18630
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
           failureThreshold: 3
         livenessProbe:
           httpGet:
-            path: /collector/main
+            path: /
             port: 18630
             scheme: HTTP
-          initialDelaySeconds: 90
+          initialDelaySeconds: 120
           periodSeconds: 30
           timeoutSeconds: 10
           failureThreshold: 3
