@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: streamsets
-        image: streamsets/streamsets:26.4
+        image: streamsets/streamsets:7.0.0-latest
         args: ["start-dev"]
         ports:
         - containerPort: 8080
