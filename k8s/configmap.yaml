@@ -3,38 +3,6 @@ kind: ConfigMap
 metadata:
   name: streamsets-config
   namespace: streamsets
-  labels:
-    app: streamsets-datacollector
 data:
-  # Configurações do SDC
-  SDC_JAVA_OPTS: "-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8 -Xmx2048m"
-  SDC_CONF_HTTP_PORT: "18630"
-  SDC_CONF_HTTPS_PORT: "18631"
-  SDC_CONF_HTTP_AUTHENTICATION: "basic"
-  SDC_CONF_HTTP_REALM_FILE_REALM_1: "/etc/sdc/basic-realm.properties"
-  SDC_CONF_PIPELINE_MAX_RUNNERS_COUNT: "50"
-  
-  # Configurações de logging
-  SDC_CONF_LOG_LEVEL: "INFO"
-  
-  # Configurações de performance
-  SDC_CONF_PRODUCTION_MAX_BATCH_SIZE: "1000"
-  SDC_CONF_PREVIEW_MAX_BATCH_SIZE: "10"
-  
-  # Arquivo de configuração customizado (opcional)
-  sdc.properties: |
-    # Custom SDC Properties
-    http.port=18630
-    https.port=18631
-    http.authentication=basic
-    http.digest.realm=sdc
-    
-    # Pipeline configuration
-    pipeline.max.runners.count=50
-    
-    # Performance tuning
-    production.max.batch.size=1000
-    preview.max.batch.size=10
-    
-    # Logging
-    log.level=INFO
+  #base
+  BASE_URL: "https://streamsets.archse.eng.br"

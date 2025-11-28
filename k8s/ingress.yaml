@@ -1,47 +1,26 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: streamsets-datacollector-ingress
+  name: streamsets-ingress
   namespace: streamsets
-  labels:
-    app: streamsets-datacollector
   annotations:
-    # Nginx Ingress Controller
+    kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-    
-    # SSL/TLS Configuration
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"  # Se usando cert-manager
-    
-    # Configurações específicas para StreamSets
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
-    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
-    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
-    
-    # Configurações para WebSocket (se necessário)
-    nginx.ingress.kubernetes.io/proxy-set-headers: |
-      Host $host
-      X-Real-IP $remote_addr
-      X-Forwarded-For $proxy_add_x_forwarded_for
-      X-Forwarded-Proto $scheme
-      Upgrade $http_upgrade
-      Connection "upgrade"
 spec:
   ingressClassName: nginx
   tls:
-  - hosts:
-    - streamsets.archse.eng.br
-    secretName: streamsets-tls-secret
+    - hosts:
+        - streamsets.archse.eng.br
+      secretName: streamsets-tls
   rules:
-  - host: streamsets.archse.eng.br
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: streamsets-datacollector-service
-            port:
-              number: 80
+    - host: streamsets.archse.eng.br
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: streamsets-service
+                port:
+                  number: 8080

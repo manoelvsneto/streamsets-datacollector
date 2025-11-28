@@ -1,82 +1,55 @@
-trigger:
-  branches:
-    include: [ main ]
-  paths:
-    exclude:
-      - README.md
-      - docs/*
-
-pr:
-  branches:
-    include: [ main ]
-
-# Para self-hosted, use só "name" (remova vmImage se seu agente é próprio)
 pool:
   name: Arm64
+  vmImage: 'ubuntu-22.04'
 
+trigger:
+- main
+resources:
+- repo: self
 variables:
-  dockerRegistryServiceConnection: 'DockerConnection'
-  imageRepository: 'manoelvsneto/streamsets-datacollector'
-  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
-  tag: '$(Build.BuildId)'
-
-  kubernetesServiceConnection: 'K8SOracleCloud'
-  kubernetesNamespace: 'streamsets'
-
+  imagePullSecret: 'regcred'
 stages:
 - stage: Build
-  displayName: Build & Push (multi-arch)
+  displayName: Build stage
   jobs:
   - job: Build
-    displayName: Build & Push Images
-    pool:
-      name: Arm64
+    displayName: Build
     steps:
-    - task: Docker@2
-      displayName: Docker Login
+
+    - task: replacetokens@3
+      displayName: Replace tokens in k8s files
       inputs:
-        command: login
-        containerRegistry: $(dockerRegistryServiceConnection)
+        rootDirectory: '$(Build.SourcesDirectory)/k8s'
+        targetFiles: '**/*.yaml'
+        encoding: 'auto'
+        writeBOM: true
+        actionOnMissing: 'warn'
+        keepToken: false
+        tokenPrefix: '__'
+        tokenSuffix: '__'
 
-    - script: |
-        set -euxo pipefail
-        docker buildx create --use --name multi || docker buildx use multi
-        docker run --privileged --rm tonistiigi/binfmt --install amd64,arm64 || true
+    - task: KubernetesManifest@0
+      displayName: Create namespace
+      inputs:
+        kubernetesServiceConnection: K8SOracleCloud
+        action: deploy
+        manifests: |
+          $(Build.SourcesDirectory)/k8s/namespace.yaml
 
-        echo ">> Building and pushing: $(imageRepository):$(tag) and :latest"
-        docker buildx build \
-          --platform linux/amd64,linux/arm64/v8 \
-          -t $(imageRepository):$(tag) \
-          -t $(imageRepository):latest \
-          -f "$(dockerfilePath)" \
-          "$(Build.SourcesDirectory)" \
-          --push
-
-        docker buildx imagetools inspect $(imageRepository):$(tag)
-      displayName: 'Buildx: build & push (amd64 + arm64)'
-
-
-
-- stage: Deploy_Prod
-  displayName: Deploy to Production
-  dependsOn: Build
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-  jobs:
-  - deployment: Deploy
-    displayName: Deploy to Kubernetes (streamsets)
-    pool:
-      name: Arm64
-    environment: 'production'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: KubernetesManifest@0
-            displayName: Apply manifests
-            inputs:
-              kubernetesServiceConnection: $(kubernetesServiceConnection)
-              namespace: $(kubernetesNamespace)
-              action: deploy
-              manifests: |
-                $(System.ArtifactsDirectory)/k8s-manifests/full.yaml
-              containers: '$(imageRepository):$(tag)'
+    - task: KubernetesManifest@0
+      displayName: Deploy to Kubernetes cluster
+      inputs:
+        kubernetesServiceConnection: K8SOracleCloud
+        action: deploy
+        namespace: 'streamsets'
+        manifests: |
+          $(Build.SourcesDirectory)/k8s/cluster-issuer.yaml
+          $(Build.SourcesDirectory)/k8s/secrets.yaml
+          $(Build.SourcesDirectory)/k8s/configmap.yaml
+          $(Build.SourcesDirectory)/k8s/deployment.yaml
+          $(Build.SourcesDirectory)/k8s/services.yaml
+          $(Build.SourcesDirectory)/k8s/certificate.yaml
+          $(Build.SourcesDirectory)/k8s/ingress.yaml
+        imagePullSecrets: |
+          $(imagePullSecret)
+        containers: 'streamsets/streamsets:26.4'
