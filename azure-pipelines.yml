@@ -52,4 +52,4 @@ stages:
           $(Build.SourcesDirectory)/k8s/ingress.yaml
         imagePullSecrets: |
           $(imagePullSecret)
-        containers: 'streamsets/streamsets:7.0.0-latest'
+        containers: 'streamsets/datacollector:7.0.0-latest'
