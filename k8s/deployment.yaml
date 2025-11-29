@@ -25,9 +25,11 @@ spec:
         - name: SDC_JAVA_OPTS
           value: "-Xmx1024m -Xms512m"
         - name: SDC_CONF_SDC_BASE_HTTP_URL
-          value: "http://streamsets.archse.eng.br"
+          value: "https://streamsets.archse.eng.br"
         - name: SDC_CONF_ACTIVATION_SKIP
           value: "true"
+        - name: SDC_CONF_HTTP_AUTHENTICATION
+          value: "form"
         resources:
           requests:
             memory: "1Gi"
