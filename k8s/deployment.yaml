@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: streamsets
-        image: streamsets/datacollector:5.11.0
+        image: streamsets/datacollector:3.22.3
         ports:
         - containerPort: 18630
           name: http
@@ -26,8 +26,6 @@ spec:
           value: "-Xmx1024m -Xms512m"
         - name: SDC_CONF_SDC_BASE_HTTP_URL
           value: "https://streamsets.archse.eng.br"
-        - name: SDC_CONF_ACTIVATION_SKIP
-          value: "true"
         - name: SDC_CONF_HTTP_AUTHENTICATION
           value: "form"
         resources:
@@ -40,18 +38,15 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /data
-        - name: sdc-conf
-          mountPath: /etc/sdc/activation.properties
-          subPath: activation.properties
         startupProbe:
           httpGet:
             path: /
             port: 18630
             scheme: HTTP
-          initialDelaySeconds: 60
+          initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
-          failureThreshold: 24
+          failureThreshold: 18
         readinessProbe:
           httpGet:
             path: /
@@ -66,13 +61,10 @@ spec:
             path: /
             port: 18630
             scheme: HTTP
-          initialDelaySeconds: 240
+          initialDelaySeconds: 120
           periodSeconds: 30
           timeoutSeconds: 10
           failureThreshold: 3
       volumes:
       - name: data
         emptyDir: {}
-      - name: sdc-conf
-        configMap:
-          name: streamsets-config
