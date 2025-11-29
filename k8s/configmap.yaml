@@ -7,3 +7,5 @@ data:
   #base
   BASE_URL: "https://streamsets.archse.eng.br"
   SDC_JAVA_OPTS: "-Xmx1024m -Xms512m"
+  # Configuração para modo standalone sem Control Hub
+  STREAMSETS_DEPLOYMENT_SCH_URL: ""

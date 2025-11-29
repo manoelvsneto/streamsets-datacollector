@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: streamsets
-        image: streamsets/datacollector:latest
+        image: streamsets/datacollector:5.11.0
         ports:
         - containerPort: 18630
           name: http
@@ -42,7 +42,7 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 5
-          failureThreshold: 18
+          failureThreshold: 24
         readinessProbe:
           httpGet:
             path: /
@@ -57,7 +57,7 @@ spec:
             path: /
             port: 18630
             scheme: HTTP
-          initialDelaySeconds: 180
+          initialDelaySeconds: 240
           periodSeconds: 30
           timeoutSeconds: 10
           failureThreshold: 3
