@@ -5,7 +5,3 @@ metadata:
   namespace: streamsets
 data:
   SDC_JAVA_OPTS: "-Xmx1024m -Xms512m"
-  sdc-activation.txt: |
-    # StreamSets Activation File
-    # This file is used to bypass activation requirement
-    SKIP_ACTIVATION=true

@@ -31,10 +31,18 @@ spec:
           value: "https://streamsets.archse.eng.br"
         - name: SDC_CONF_HTTP_AUTHENTICATION
           value: "form"
-        - name: SDC_CONF_RUNNER_BOOT_PIPELINE_RESTART_ON_COMPLETION
-          value: "false"
-        - name: SDC_CONF_PRODUCTION_MODE_ENABLED
-          value: "false"
+        - name: SDC_CONF_HTTP_AUTHENTICATION_LOGIN_MODULE
+          value: "file"
+        - name: STREAMSETS_DEPLOYMENT_ACTIVATION_ID
+          valueFrom:
+            secretKeyRef:
+              name: streamsets-secrets
+              key: activation-id
+        - name: STREAMSETS_DEPLOYMENT_ACTIVATION_CODE
+          valueFrom:
+            secretKeyRef:
+              name: streamsets-secrets
+              key: activation-code
         resources:
           requests:
             memory: "1Gi"
@@ -45,9 +53,6 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /data
-        - name: sdc-data
-          mountPath: /data/sdc-activation.txt
-          subPath: sdc-activation.txt
         startupProbe:
           httpGet:
             path: /
@@ -78,6 +83,3 @@ spec:
       volumes:
       - name: data
         emptyDir: {}
-      - name: sdc-data
-        configMap:
-          name: streamsets-config

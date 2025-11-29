@@ -8,6 +8,9 @@ resources:
 - repo: self
 variables:
   imagePullSecret: 'regcred'
+  # Configure estas variáveis no Azure DevOps:
+  # - ACTIVATION_ID
+  # - ACTIVATION_CODE (marque como secret)
 stages:
 - stage: Build
   displayName: Build stage
@@ -27,6 +30,9 @@ stages:
         keepToken: false
         tokenPrefix: '__'
         tokenSuffix: '__'
+      env:
+        ACTIVATION_ID: $(ACTIVATION_ID)
+        ACTIVATION_CODE: $(ACTIVATION_CODE)
 
     - task: KubernetesManifest@0
       displayName: Create namespace
