@@ -17,23 +17,13 @@ spec:
     spec:
       containers:
       - name: streamsets
-        image: streamsets/datacollector:6.3.1-0106
+        image: streamsets/datacollector:latest
         ports:
         - containerPort: 18630
           name: http
-        - containerPort: 18631
-          name: https
         env:
         - name: SDC_JAVA_OPTS
           value: "-Xmx1024m -Xms512m"
-        - name: SDC_CONF
-          value: "/opt/streamsets/etc"
-        - name: SDC_DATA
-          value: "/opt/streamsets/data"
-        - name: SDC_LOG
-          value: "/opt/streamsets/log"
-        - name: SDC_RESOURCES
-          value: "/opt/streamsets/resources"
         resources:
           requests:
             memory: "1Gi"
@@ -43,40 +33,34 @@ spec:
             cpu: "500m"
         volumeMounts:
         - name: data
-          mountPath: /opt/streamsets/data
-        - name: logs
-          mountPath: /opt/streamsets/log
+          mountPath: /data
         startupProbe:
           httpGet:
             path: /
             port: 18630
             scheme: HTTP
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 5
-          failureThreshold: 12
+          failureThreshold: 18
         readinessProbe:
           httpGet:
             path: /
             port: 18630
             scheme: HTTP
-          initialDelaySeconds: 10
-          periodSeconds: 5
-          timeoutSeconds: 3
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
           failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /
             port: 18630
             scheme: HTTP
-          initialDelaySeconds: 120
+          initialDelaySeconds: 180
           periodSeconds: 30
           timeoutSeconds: 10
           failureThreshold: 3
       volumes:
       - name: data
         emptyDir: {}
-      - name: logs
-        emptyDir: {}
-      imagePullSecrets:
-      - name: regcred

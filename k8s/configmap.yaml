@@ -6,3 +6,4 @@ metadata:
 data:
   #base
   BASE_URL: "https://streamsets.archse.eng.br"
+  SDC_JAVA_OPTS: "-Xmx1024m -Xms512m"
