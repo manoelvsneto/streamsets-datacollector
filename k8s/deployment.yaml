@@ -20,7 +20,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
       - name: streamsets
-        image: streamsets/datacollector:3.22.3
+        image: streamsets/datacollector:5.11.0
         ports:
         - containerPort: 18630
           name: http
@@ -31,6 +31,10 @@ spec:
           value: "https://streamsets.archse.eng.br"
         - name: SDC_CONF_HTTP_AUTHENTICATION
           value: "form"
+        - name: SDC_CONF_RUNNER_BOOT_PIPELINE_RESTART_ON_COMPLETION
+          value: "false"
+        - name: SDC_CONF_PRODUCTION_MODE_ENABLED
+          value: "false"
         resources:
           requests:
             memory: "1Gi"
@@ -41,6 +45,9 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /data
+        - name: sdc-data
+          mountPath: /data/sdc-activation.txt
+          subPath: sdc-activation.txt
         startupProbe:
           httpGet:
             path: /
@@ -71,3 +78,6 @@ spec:
       volumes:
       - name: data
         emptyDir: {}
+      - name: sdc-data
+        configMap:
+          name: streamsets-config
