@@ -24,6 +24,10 @@ spec:
         env:
         - name: SDC_JAVA_OPTS
           value: "-Xmx1024m -Xms512m"
+        - name: SDC_CONF_SDC_BASE_HTTP_URL
+          value: "http://streamsets.archse.eng.br"
+        - name: SDC_CONF_ACTIVATION_SKIP
+          value: "true"
         resources:
           requests:
             memory: "1Gi"
@@ -34,6 +38,9 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /data
+        - name: sdc-conf
+          mountPath: /etc/sdc/activation.properties
+          subPath: activation.properties
         startupProbe:
           httpGet:
             path: /
@@ -64,3 +71,6 @@ spec:
       volumes:
       - name: data
         emptyDir: {}
+      - name: sdc-conf
+        configMap:
+          name: streamsets-config
