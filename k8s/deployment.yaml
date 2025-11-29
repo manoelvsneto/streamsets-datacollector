@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: streamsets
-        image: streamsets/datacollector:7.0.0-latest
+        image: streamsets/datacollector:6.1.1-0098-latest
         ports:
         - containerPort: 18630
           name: http
