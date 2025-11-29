@@ -7,6 +7,8 @@ metadata:
     app: streamsets
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: streamsets
@@ -15,6 +17,7 @@ spec:
       labels:
         app: streamsets
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
       - name: streamsets
         image: streamsets/datacollector:3.22.3
@@ -43,10 +46,10 @@ spec:
             path: /
             port: 18630
             scheme: HTTP
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 5
-          failureThreshold: 18
+          failureThreshold: 30
         readinessProbe:
           httpGet:
             path: /
@@ -61,7 +64,7 @@ spec:
             path: /
             port: 18630
             scheme: HTTP
-          initialDelaySeconds: 120
+          initialDelaySeconds: 180
           periodSeconds: 30
           timeoutSeconds: 10
           failureThreshold: 3
