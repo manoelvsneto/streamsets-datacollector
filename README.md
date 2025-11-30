@@ -208,3 +208,51 @@ For example, to install the JDBC lib into the sdc-stagelibs volume you created a
 
 `docker run --rm -v sdc-stagelibs:/opt/streamsets-datacollector-3.9.1/streamsets-libs streamsets/datacollector:3.9.1 stagelibs -install=streamsets-datacollector-jdbc-lib`
 
+# Apache NiFi - Data Flow Platform
+
+## 🚀 Início Rápido
+
+### 1. Executar via Docker Compose
+```cmd
+docker-compose up -d
+```
+
+### 2. Executar via script
+```cmd
+run-streamsets.cmd
+```
+
+## 🌐 Acessar Interface
+
+- **URL**: https://localhost:8443/nifi
+- **Usuário**: admin
+- **Senha**: admin123
+
+## 📦 Comandos Úteis
+
+```cmd
+# Ver logs
+docker logs -f nifi
+
+# Parar
+docker stop nifi
+
+# Reiniciar
+docker restart nifi
+
+# Remover
+docker rm -f nifi
+```
+
+## 🎯 Vantagens do Apache NiFi
+
+- ✅ 100% Open Source (Apache License 2.0)
+- ✅ Sem activation code
+- ✅ Interface web completa
+- ✅ Pipelines visuais, arraste e solte
+- ✅ Suporte a centenas de conectores
+
+## 📚 Documentação
+
+- https://nifi.apache.org/docs.html
+

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: streamsets-config
-  namespace: streamsets
+  name: nifi-config
+  namespace: nifi
 data:
   SDC_JAVA_OPTS: "-Xmx1024m -Xms512m"

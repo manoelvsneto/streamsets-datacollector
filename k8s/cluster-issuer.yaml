@@ -1,8 +1,8 @@
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
-  name: letsencrypt-streamsets-prod
-  namespace: streamsets
+  name: letsencrypt-nifi-prod
+  namespace: nifi
 spec:
   acme:
     email: neto.manoel@gmail.com

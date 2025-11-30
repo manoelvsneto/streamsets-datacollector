@@ -1,8 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: streamsets-ingress
-  namespace: streamsets
+  name: nifi-ingress
+  namespace: nifi
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
@@ -13,7 +13,7 @@ metadata:
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
     nginx.ingress.kubernetes.io/upstream-keepalive-timeout: "600"
     nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
-    nginx.ingress.kubernetes.io/websocket-services: "streamsets-service"
+    nginx.ingress.kubernetes.io/websocket-services: "nifi-service"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       proxy_set_header X-Forwarded-Proto https;
       proxy_set_header X-Forwarded-Port 443;
@@ -22,7 +22,7 @@ spec:
   tls:
     - hosts:
         - streamsets.archse.eng.br
-      secretName: streamsets-tls-secret
+      secretName: nifi-tls-secret
   rules:
     - host: streamsets.archse.eng.br
       http:
@@ -31,6 +31,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: streamsets-service
+                name: nifi-service
                 port:
                   number: 18630

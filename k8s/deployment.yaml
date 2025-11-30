@@ -1,48 +1,36 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: streamsets-deployment
+  name: nifi-deployment
   namespace: streamsets
   labels:
-    app: streamsets
+    app: nifi
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: streamsets
+      app: nifi
   template:
     metadata:
       labels:
-        app: streamsets
+        app: nifi
     spec:
       terminationGracePeriodSeconds: 30
       containers:
-      - name: streamsets
-        image: streamsets/datacollector:5.11.0
+      - name: nifi
+        image: apache/nifi:latest
         ports:
-        - containerPort: 18630
-          name: http
+        - containerPort: 8443
+          name: https
         env:
-        - name: SDC_JAVA_OPTS
-          value: "-Xmx1024m -Xms512m"
-        - name: SDC_CONF_SDC_BASE_HTTP_URL
-          value: "https://streamsets.archse.eng.br"
-        - name: SDC_CONF_HTTP_AUTHENTICATION
-          value: "form"
-        - name: SDC_CONF_HTTP_AUTHENTICATION_LOGIN_MODULE
-          value: "file"
-        - name: STREAMSETS_DEPLOYMENT_ACTIVATION_ID
-          valueFrom:
-            secretKeyRef:
-              name: streamsets-secrets
-              key: activation-id
-        - name: STREAMSETS_DEPLOYMENT_ACTIVATION_CODE
-          valueFrom:
-            secretKeyRef:
-              name: streamsets-secrets
-              key: activation-code
+        - name: NIFI_WEB_HTTPS_PORT
+          value: "8443"
+        - name: SINGLE_USER_CREDENTIALS_USERNAME
+          value: "admin"
+        - name: SINGLE_USER_CREDENTIALS_PASSWORD
+          value: "admin123"
         resources:
           requests:
             memory: "1Gi"
@@ -52,30 +40,30 @@ spec:
             cpu: "500m"
         volumeMounts:
         - name: data
-          mountPath: /data
+          mountPath: /opt/nifi/nifi-current/data
         startupProbe:
           httpGet:
-            path: /
-            port: 18630
-            scheme: HTTP
+            path: /nifi
+            port: 8443
+            scheme: HTTPS
           initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 30
         readinessProbe:
           httpGet:
-            path: /
-            port: 18630
-            scheme: HTTP
+            path: /nifi
+            port: 8443
+            scheme: HTTPS
           periodSeconds: 10
           timeoutSeconds: 5
           successThreshold: 1
           failureThreshold: 3
         livenessProbe:
           httpGet:
-            path: /
-            port: 18630
-            scheme: HTTP
+            path: /nifi
+            port: 8443
+            scheme: HTTPS
           initialDelaySeconds: 180
           periodSeconds: 30
           timeoutSeconds: 10
