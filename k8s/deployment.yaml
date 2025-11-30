@@ -21,49 +21,36 @@ spec:
         - name: nifi
           image: apache/nifi:latest
           imagePullPolicy: IfNotPresent
-
           ports:
-            - name: http
-              containerPort: 8080
             - name: https
               containerPort: 8443
-
           env:
-            - name: NIFI_WEB_HTTP_PORT
-              value: "8080"
+            - name: NIFI_WEB_HTTPS_PORT
+              value: "8443"
+            - name: NIFI_WEB_HTTPS_HOST
+              value: "0.0.0.0"
             - name: NIFI_PYTHON_COMMAND
               value: "python3"
-            # Não tente editar nifi.properties diretamente via init ou sed.
-            # O arquivo será criado pelo NiFi na inicialização.
-            # Uncomment below to enable HTTPS instead
-            # - name: NIFI_WEB_HTTPS_PORT
-            #   value: "8443"
-            # - name: NIFI_WEB_HTTPS_HOST
-            #   value: "0.0.0.0"
-            # - name: NIFI_SECURITY_KEYSTORE
-            #   value: "/opt/nifi/nifi-current/conf/keystore.jks"
-            # - name: NIFI_SECURITY_KEYSTORE_TYPE
-            #   value: "JKS"
-            # - name: NIFI_SECURITY_KEYSTORE_PASSWD
-            #   value: "changeit"
-
+            - name: SINGLE_USER_CREDENTIALS_USERNAME
+              value: "admin"
+            - name: SINGLE_USER_CREDENTIALS_PASSWORD
+              value: "admin123"
             - name: NIFI_CLUSTER_IS_NODE
               value: "false"
-
           readinessProbe:
             httpGet:
               path: /nifi
-              port: 8080
+              port: 8443
+              scheme: HTTPS
             initialDelaySeconds: 40
             periodSeconds: 10
-
           livenessProbe:
             httpGet:
               path: /nifi
-              port: 8080
+              port: 8443
+              scheme: HTTPS
             initialDelaySeconds: 60
             periodSeconds: 20
-
           volumeMounts:
             - name: flowfile-repo
               mountPath: /opt/nifi/nifi-current/flowfile_repository
@@ -73,10 +60,9 @@ spec:
               mountPath: /opt/nifi/nifi-current/provenance_repository
             - name: conf
               mountPath: /opt/nifi/nifi-current/conf
-
       volumes:
         - name: flowfile-repo
-          emptyDir: {}  # Change to PVC for production
+          emptyDir: {}
         - name: content-repo
           emptyDir: {}
         - name: provenance-repo
