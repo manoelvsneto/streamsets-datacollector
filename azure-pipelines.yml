@@ -47,7 +47,7 @@ stages:
       inputs:
         kubernetesServiceConnection: K8SOracleCloud
         action: deploy
-        namespace: 'streamsets'
+        namespace: 'nifi'
         manifests: |
           $(Build.SourcesDirectory)/k8s/cluster-issuer.yaml
           $(Build.SourcesDirectory)/k8s/secrets.yaml

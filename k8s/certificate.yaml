@@ -4,7 +4,7 @@ metadata:
   name: nifi-tls
   namespace: nifi
 spec:
-  secretName: nifi-tls
+  secretName: nif-tls
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
