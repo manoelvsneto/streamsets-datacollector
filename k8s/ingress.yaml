@@ -21,10 +21,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - streamsets.archse.eng.br
+        - nifi.archse.eng.br
       secretName: nifi-tls-secret
   rules:
-    - host: streamsets.archse.eng.br
+    - host: nifi.archse.eng.br
       http:
         paths:
           - path: /nifi
