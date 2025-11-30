@@ -33,6 +33,8 @@ spec:
               value: "8080"
             - name: NIFI_PYTHON_COMMAND
               value: "python3"
+            # Não tente editar nifi.properties diretamente via init ou sed.
+            # O arquivo será criado pelo NiFi na inicialização.
             # Uncomment below to enable HTTPS instead
             # - name: NIFI_WEB_HTTPS_PORT
             #   value: "8443"
