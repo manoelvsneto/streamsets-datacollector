@@ -6,7 +6,7 @@ metadata:
 spec:
   secretName: nifi-tls
   issuerRef:
-    name: letsencrypt-nifi-prod
+    name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
     - nifi.archse.eng.br
