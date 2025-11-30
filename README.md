@@ -220,6 +220,8 @@ docker-compose up -d
 ### 2. Executar via script
 ```cmd
 run-streamsets.cmd
+
+teste
 ```
 
 ## 🌐 Acessar Interface
