@@ -7,8 +7,6 @@ metadata:
     app: nifi
 spec:
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app: nifi
@@ -17,57 +15,67 @@ spec:
       labels:
         app: nifi
     spec:
-      terminationGracePeriodSeconds: 30
+      securityContext:
+        fsGroup: 1000
       containers:
-      - name: nifi
-        image: apache/nifi:latest
-        ports:
-        - containerPort: 8443
-          name: https
-        env:
-        - name: NIFI_WEB_HTTPS_PORT
-          value: "8443"
-        - name: SINGLE_USER_CREDENTIALS_USERNAME
-          value: "admin"
-        - name: SINGLE_USER_CREDENTIALS_PASSWORD
-          value: "admin123"
-        resources:
-          requests:
-            memory: "1Gi"
-            cpu: "250m"
-          limits:
-            memory: "2Gi"
-            cpu: "500m"
-        volumeMounts:
-        - name: data
-          mountPath: /opt/nifi/nifi-current/data
-        startupProbe:
-          httpGet:
-            path: /nifi
-            port: 8443
-            scheme: HTTPS
-          initialDelaySeconds: 60
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 30
-        readinessProbe:
-          httpGet:
-            path: /nifi
-            port: 8443
-            scheme: HTTPS
-          periodSeconds: 10
-          timeoutSeconds: 5
-          successThreshold: 1
-          failureThreshold: 3
-        livenessProbe:
-          httpGet:
-            path: /nifi
-            port: 8443
-            scheme: HTTPS
-          initialDelaySeconds: 180
-          periodSeconds: 30
-          timeoutSeconds: 10
-          failureThreshold: 3
+        - name: nifi
+          image: apache/nifi:latest
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: https
+              containerPort: 8443
+
+          env:
+            - name: NIFI_WEB_HTTP_PORT
+              value: "8080"
+            # Uncomment below to enable HTTPS instead
+            # - name: NIFI_WEB_HTTPS_PORT
+            #   value: "8443"
+            # - name: NIFI_WEB_HTTPS_HOST
+            #   value: "0.0.0.0"
+            # - name: NIFI_SECURITY_KEYSTORE
+            #   value: "/opt/nifi/nifi-current/conf/keystore.jks"
+            # - name: NIFI_SECURITY_KEYSTORE_TYPE
+            #   value: "JKS"
+            # - name: NIFI_SECURITY_KEYSTORE_PASSWD
+            #   value: "changeit"
+
+            - name: NIFI_CLUSTER_IS_NODE
+              value: "false"
+
+          readinessProbe:
+            httpGet:
+              path: /nifi
+              port: 8080
+            initialDelaySeconds: 40
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /nifi
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 20
+
+          volumeMounts:
+            - name: flowfile-repo
+              mountPath: /opt/nifi/nifi-current/flowfile_repository
+            - name: content-repo
+              mountPath: /opt/nifi/nifi-current/content_repository
+            - name: provenance-repo
+              mountPath: /opt/nifi/nifi-current/provenance_repository
+            - name: conf
+              mountPath: /opt/nifi/nifi-current/conf
+
       volumes:
-      - name: data
-        emptyDir: {}
+        - name: flowfile-repo
+          emptyDir: {}  # Change to PVC for production
+        - name: content-repo
+          emptyDir: {}
+        - name: provenance-repo
+          emptyDir: {}
+        - name: conf
+          emptyDir: {}
