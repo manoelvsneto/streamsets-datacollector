@@ -22,7 +22,7 @@ spec:
   tls:
     - hosts:
         - nifi.archse.eng.br
-      secretName: nifi-tls-secret
+      secretName: nifi-tls
   rules:
     - host: nifi.archse.eng.br
       http:
