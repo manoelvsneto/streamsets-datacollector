@@ -7,6 +7,8 @@ metadata:
     app: nifi
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: nifi
@@ -15,57 +17,59 @@ spec:
       labels:
         app: nifi
     spec:
-      securityContext:
-        fsGroup: 1000
+      terminationGracePeriodSeconds: 30
       containers:
-        - name: nifi
-          image: apache/nifi:latest
-          imagePullPolicy: IfNotPresent
-          ports:
-            - name: https
-              containerPort: 8443
-          env:
-            - name: NIFI_WEB_HTTPS_PORT
-              value: "8443"
-            - name: NIFI_WEB_HTTPS_HOST
-              value: "0.0.0.0"
-            - name: NIFI_PYTHON_COMMAND
-              value: "python3"
-            - name: SINGLE_USER_CREDENTIALS_USERNAME
-              value: "admin"
-            - name: SINGLE_USER_CREDENTIALS_PASSWORD
-              value: "admin123"
-            - name: NIFI_CLUSTER_IS_NODE
-              value: "false"
-          readinessProbe:
-            httpGet:
-              path: /nifi
-              port: 8443
-              scheme: HTTPS
-            initialDelaySeconds: 40
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /nifi
-              port: 8443
-              scheme: HTTPS
-            initialDelaySeconds: 60
-            periodSeconds: 20
-          volumeMounts:
-            - name: flowfile-repo
-              mountPath: /opt/nifi/nifi-current/flowfile_repository
-            - name: content-repo
-              mountPath: /opt/nifi/nifi-current/content_repository
-            - name: provenance-repo
-              mountPath: /opt/nifi/nifi-current/provenance_repository
-            - name: conf
-              mountPath: /opt/nifi/nifi-current/conf
+      - name: nifi
+        image: apache/nifi:latest
+        ports:
+        - containerPort: 8443
+          name: https
+        env:
+        - name: NIFI_WEB_HTTPS_PORT
+          value: "8443"
+        - name: NIFI_WEB_HTTPS_HOST
+          value: "0.0.0.0"
+        - name: SINGLE_USER_CREDENTIALS_USERNAME
+          value: "admin"
+        - name: SINGLE_USER_CREDENTIALS_PASSWORD
+          value: "admin123"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: data
+          mountPath: /opt/nifi/nifi-current/data
+        startupProbe:
+          httpGet:
+            path: /nifi
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /nifi
+            port: 8443
+            scheme: HTTPS
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /nifi
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 180
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
       volumes:
-        - name: flowfile-repo
-          emptyDir: {}
-        - name: content-repo
-          emptyDir: {}
-        - name: provenance-repo
-          emptyDir: {}
-        - name: conf
-          emptyDir: {}
+      - name: data
+        emptyDir: {}
